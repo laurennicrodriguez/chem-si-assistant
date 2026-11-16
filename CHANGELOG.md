@@ -11,6 +11,10 @@ program's update check shows.)
   (*R*)/(*S*) and *o*-/*m*-/*p*-. Typing *…* in a name chooses the italics by hand instead.
 - **Cover page spacing.** Front matter ▸ Cover page has a **Spacing** box: Normal, More
   or Much more space between the heading, title, authors, affiliations and emails.
+- **Heading numbers.** Project settings ▸ Output ▸ **Heading numbers**: as the journal
+  style does, an **outline** (sections 1, 2, 3; the next level A, B, C; then a, b, c),
+  1, 1.1, 1.1.1, or none, in any style. The outline and 1.1.1 also number the headings
+  typed in a section's text and the General Information heading.
 - **Pictures in table cells.** A table cell can now hold a structure or picture, printed
   above its text: a list of ligands drawn with their names, or a reaction scheme in a
   merged cell across the top of an optimisation table (the scheme and the data then print
