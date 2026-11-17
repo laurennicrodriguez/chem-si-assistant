@@ -76,6 +76,37 @@ LINK_LOOKS = {"plain": "body",
               "blue_underline": f'text(fill: rgb("{LINK_COLOUR}"), underline(body))'}
 
 
+# A table's column widths (Builder.table_code). Typst's own automatic widths can squeeze
+# a column below its longest word, so words overlap the next column, and the SI's
+# justified text hyphenates table words ("Addi-tive"). Here words are never hyphenated
+# or split: every column is at least as wide as its longest word, and the room left is
+# shared out like a web page's table (more to the columns with longer text). A table
+# whose longest words alone are wider than the page is shrunk to fit. `cells`: for each
+# one-column cell, (column, its text, (its words)). `make(widths)` makes the table.
+TABLE_FIT_DEFINITION = """#let si-fit-table(n, cells, make) = layout(room => {
+  let pad = 10pt
+  let nat = (0pt,) * n
+  let least = (0pt,) * n
+  for (col, body, words) in cells {
+    nat.at(col) = calc.max(nat.at(col), measure(body).width)
+    for w in words { least.at(col) = calc.max(least.at(col), measure(w).width) }
+  }
+  nat = range(n).map(i => calc.max(nat.at(i), least.at(i)))
+  let free = room.width - pad * n
+  let tbl(widths) = { set text(hyphenate: false); set par(justify: false); make(widths) }
+  if nat.sum() <= free {
+    tbl(n)
+  } else if least.sum() <= free {
+    let extra = free - least.sum()
+    let slack = nat.sum() - least.sum()
+    tbl(range(n).map(i => least.at(i) + pad + extra * ((nat.at(i) - least.at(i)) / slack)))
+  } else {
+    let factor = room.width / (least.sum() + pad * n)
+    scale(factor * 100%, reflow: true, tbl(least.map(w => w + pad)))
+  }
+})"""
+
+
 def link_definition(style: str) -> str:
     look = LINK_LOOKS.get(style, LINK_LOOKS["plain"])
     return ("#let si-link(target, body) = context {\n"
@@ -1063,8 +1094,11 @@ class Builder:
             if r < header:
                 cell.rowspan = min(cell.rowspan, header - r)
         t.normalize()
+        # What si-fit-table measures to choose the column widths: for each one-column
+        # cell, its whole text (its width on one line) and its words (none may be split).
+        measured: list[str] = []
 
-        def cell_code(cell) -> str:
+        def cell_code(cell, col: int) -> str:
             args = []
             if cell.colspan > 1:
                 args.append(f"colspan: {cell.colspan}")
@@ -1074,20 +1108,50 @@ class Builder:
                 args.append(f"align: {cell.align} + horizon")
             text = self.cell_text(cell.text, where)
             picture = self.cell_picture(cell, folder, where)
+            words = self.cell_words(cell.text, where)
             if picture:   # the picture above the text (e.g. a structure with its name)
                 text = f"#{picture}" + (f"#linebreak(){text}" if text else "")
+                words.append(f"#{picture}")
             body = f"[{text}]"
+            if cell.colspan == 1 and text:
+                measured.append(f"({col}, {body}, ({''.join(f'[{w}], ' for w in words)}))")
             return f"table.cell({', '.join(args)}){body}" if args else body
 
-        head = [cell_code(cell) for r, _c, cell in t.cells() if r < header]
-        body = [cell_code(cell) for r, _c, cell in t.cells() if r >= header]
+        head = [cell_code(cell, c) for r, c, cell in t.cells() if r < header]
+        body = [cell_code(cell, c) for r, c, cell in t.cells() if r >= header]
         aligns = ", ".join(f"{a} + horizon" for a in t.columns)
-        parts = [f"columns: {t.n_cols}", f"align: ({aligns},)", "stroke: none",
+        parts = ["columns: widths", f"align: ({aligns},)", "stroke: none",
                  "table.hline(stroke: 0.8pt)"]
         if head:
             parts += ["table.header(" + ", ".join(head) + ")", "table.hline(stroke: 0.5pt)"]
         parts += body + ["table.hline(stroke: 0.8pt)"]
-        return "table(" + ", ".join(parts) + ")"
+        return (f"si-fit-table({t.n_cols}, ({''.join(m + ', ' for m in measured)}), "
+                "widths => table(" + ", ".join(parts) + "))")
+
+    def cell_words(self, text: str, where: str) -> list[str]:
+        """A table cell's words (split at spaces and line breaks) as Typst code, each
+        keeping its formatting, so the table's columns can be made at least as wide as
+        their longest word (si-fit-table)."""
+        words: list[str] = []
+        for p in parse(text):   # (cell_text has already warned about broken links)
+            runs = resolve_links(p.runs, self.mention_text, self.ref_ids, [])
+            runs = format_chemistry(runs) if self.options.format_text else runs
+            word: list[Run] = []
+            for run in runs:
+                if run.ref:   # (a mention or citation is never split)
+                    word.append(run)
+                    continue
+                pieces = re.split(r"\s+", run.text)
+                for i, piece in enumerate(pieces):
+                    if i:
+                        if word:
+                            words.append(runs_to_typst(word))
+                        word = []
+                    if piece:
+                        word.append(replace(run, text=piece))
+            if word:
+                words.append(runs_to_typst(word))
+        return [w for w in words if w]
 
     def text_section(self, section: Section, level: int = 1) -> str:
         """A custom section: its heading at `level` (its depth in the tree), then its text,
@@ -1697,7 +1761,8 @@ class Builder:
         parts = ['#import "style.typ": *',
                  f"#show: si-doc.with(title: {typst_string(str(p.settings.get('title') or ''))}, "
                  f"{self.page_args()})",
-                 headings.typst_set_rule(p.settings)]   # (Project settings ▸ Heading numbers)
+                 headings.typst_set_rule(p.settings),   # (Project settings ▸ Heading numbers)
+                 TABLE_FIT_DEFINITION]
         if self.nmr_links:
             parts.append(link_definition(self.link_style))
         if self.options.only is None:
