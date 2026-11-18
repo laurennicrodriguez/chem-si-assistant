@@ -25,7 +25,9 @@ from typing import Any
 AMOUNT_UNITS = ("mmol", "µmol", "mol")
 MASS_UNITS = ("mg", "g", "µg")
 IONIZATION_METHODS = ("ESI", "APCI", "EI", "CI", "APPI", "DART", "FAB", "MALDI")
-ADDUCTS = ("[M+H]+", "[M+Na]+", "[M+K]+", "[M+NH4]+", "[M]+", "[M]+•",
+# ([M−H]+: a hydride lost, e.g. a dihydropyridine or an amine seen as its iminium or
+# pyridinium cation)
+ADDUCTS = ("[M+H]+", "[M+Na]+", "[M+K]+", "[M+NH4]+", "[M]+", "[M]+•", "[M−H]+",
            "[M−H]−", "[M+Cl]−", "[M+HCOO]−")
 NUCLEI = ("1H", "13C", "19F", "31P", "11B", "15N", "29Si", "2H", "77Se", "119Sn", "195Pt")
 SPECTRUM_TYPES = ("1H", "13C", "19F", "31P", "11B", "Other NMR", "2D NMR", "HPLC/SFC", "IR",

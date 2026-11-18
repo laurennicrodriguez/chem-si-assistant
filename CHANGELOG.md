@@ -6,6 +6,8 @@ program's update check shows.)
 
 ## [Unreleased]
 
+- **[M−H]⁺ in the HRMS adduct list**, for an ion that has lost a hydride (e.g. a
+  dihydropyridine seen as its pyridinium cation).
 - **Tables fit their words.** Words in a table are no longer hyphenated ("Addi-tive") or
   squeezed into the next column. Every column is at least as wide as its longest word,
   and the rest of the width goes to the columns with the most text. Long names can still
