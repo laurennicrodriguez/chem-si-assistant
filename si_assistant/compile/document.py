@@ -79,12 +79,13 @@ LINK_LOOKS = {"plain": "body",
 # A table's column widths (Builder.table_code). Typst's own automatic widths can squeeze
 # a column below its longest word, so words overlap the next column, and the SI's
 # justified text hyphenates table words ("Addi-tive"). Here words are never hyphenated
-# or split: every column is at least as wide as its longest word, and the room left is
-# shared out like a web page's table (more to the columns with longer text). A table
-# whose longest words alone are wider than the page is shrunk to fit. `cells`: for each
-# one-column cell, (column, its text, (its words)). `make(widths)` makes the table.
+# or split: every column is at least as wide as its longest word (or picture), and the
+# room left is shared out like a web page's table (more to the columns with longer
+# text). When the longest words and pictures only fit with less space between the
+# columns, the cells' padding shrinks (to 3pt a side at least); only a table wider even
+# then is shrunk as a whole to fit. `cells`: for each one-column cell, (column, its
+# text, (its unbreakable pieces)). `make(widths)` makes the table.
 TABLE_FIT_DEFINITION = """#let si-fit-table(n, cells, make) = layout(room => {
-  let pad = 10pt
   let nat = (0pt,) * n
   let least = (0pt,) * n
   for (col, body, words) in cells {
@@ -92,17 +93,24 @@ TABLE_FIT_DEFINITION = """#let si-fit-table(n, cells, make) = layout(room => {
     for w in words { least.at(col) = calc.max(least.at(col), measure(w).width) }
   }
   nat = range(n).map(i => calc.max(nat.at(i), least.at(i)))
+  let pad = calc.max(6pt, calc.min(10pt, (room.width - least.sum()) / n))
+  let tbl(widths, pad) = {
+    set text(hyphenate: false)
+    set par(justify: false)
+    set table(inset: (x: pad / 2, y: 5pt))
+    make(widths)
+  }
   let free = room.width - pad * n
-  let tbl(widths) = { set text(hyphenate: false); set par(justify: false); make(widths) }
-  if nat.sum() <= free {
-    tbl(n)
+  if nat.sum() <= free and pad == 10pt {
+    tbl(n, pad)
   } else if least.sum() <= free {
     let extra = free - least.sum()
     let slack = nat.sum() - least.sum()
-    tbl(range(n).map(i => least.at(i) + pad + extra * ((nat.at(i) - least.at(i)) / slack)))
+    let share(i) = if slack > 0pt { extra * ((nat.at(i) - least.at(i)) / slack) } else { extra / n }
+    tbl(range(n).map(i => least.at(i) + pad + share(i)), pad)
   } else {
     let factor = room.width / (least.sum() + pad * n)
-    scale(factor * 100%, reflow: true, tbl(least.map(w => w + pad)))
+    scale(factor * 100%, reflow: true, tbl(least.map(w => w + pad), pad))
   }
 })"""
 
@@ -1129,28 +1137,47 @@ class Builder:
                 "widths => table(" + ", ".join(parts) + "))")
 
     def cell_words(self, text: str, where: str) -> list[str]:
-        """A table cell's words (split at spaces and line breaks) as Typst code, each
-        keeping its formatting, so the table's columns can be made at least as wide as
-        their longest word (si-fit-table)."""
+        """A table cell's unbreakable pieces as Typst code, each keeping its formatting,
+        so the table's columns can be made at least as wide as their longest piece
+        (si-fit-table). A line can break at a space and after a hyphen followed by a
+        letter or bracket (as Typst breaks "Ph-Triol" or "(R)-(3,5-di-i-propyl…"), but not
+        before a digit ("propyl-4-") or a closing bracket ("(-)")."""
         words: list[str] = []
         for p in parse(text):   # (cell_text has already warned about broken links)
             runs = resolve_links(p.runs, self.mention_text, self.ref_ids, [])
             runs = format_chemistry(runs) if self.options.format_text else runs
-            word: list[Run] = []
+            # one entry per character (a mention or citation counts as one, never split)
+            chars: list[tuple[str, Run]] = []
             for run in runs:
-                if run.ref:   # (a mention or citation is never split)
+                if run.ref:
+                    chars.append(("", run))
+                else:
+                    chars += [(ch, run) for ch in run.text]
+            word: list[Run] = []
+
+            def add(ch: str, run: Run) -> None:
+                if not ch:
                     word.append(run)
+                elif word and not word[-1].ref and word[-1].same_format(run):
+                    word[-1] = replace(word[-1], text=word[-1].text + ch)
+                else:
+                    word.append(replace(run, text=ch))
+
+            def finish() -> None:
+                if word:
+                    words.append(runs_to_typst(word))
+                    word.clear()
+
+            for i, (ch, run) in enumerate(chars):
+                if ch.isspace():
+                    finish()
                     continue
-                pieces = re.split(r"\s+", run.text)
-                for i, piece in enumerate(pieces):
-                    if i:
-                        if word:
-                            words.append(runs_to_typst(word))
-                        word = []
-                    if piece:
-                        word.append(replace(run, text=piece))
-            if word:
-                words.append(runs_to_typst(word))
+                add(ch, run)
+                nxt = chars[i + 1][0] if i + 1 < len(chars) else ""
+                if (ch == "-" and len(word) and nxt and not nxt.isspace()
+                        and not nxt.isdigit() and nxt not in ")]}.,;:!?-"):
+                    finish()
+            finish()
         return [w for w in words if w]
 
     def text_section(self, section: Section, level: int = 1) -> str:

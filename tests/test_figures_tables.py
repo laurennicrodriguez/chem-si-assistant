@@ -489,3 +489,23 @@ def test_table_fit_definition_is_in_every_document(doc):
     p, d = doc
     assert TABLE_FIT_DEFINITION in builder(p).document()
     assert "hyphenate: false" in TABLE_FIT_DEFINITION
+
+
+def test_cell_words_break_after_hyphens_like_typst(doc):
+    """A long name can wrap after a hyphen, so it does not force its column (and the
+    whole table) wider than the page; not before a digit or a closing bracket."""
+    p, d = doc
+    b = builder(p)
+    assert b.cell_words("K+ Ph-Triol", "here") == ['#"K+"', '#"Ph-"', '#"Triol"']
+    assert b.cell_words("propyl-4-dimethyl", "here") == ['#"propyl-4-"', '#"dimethyl"']
+    assert b.cell_words("(S)-(-)-BINAP", "here") == ['#"(S)-"', '#"(-)-"', '#"BINAP"']
+    # the break follows the text across formatting: "di-" then the italic i
+    words = b.cell_words("(3,5-di-*i*-propyl", "here")
+    assert words[:2] == ['#"(3,5-"', '#"di-"']
+    assert words[2] == '#emph[#"i"]#"-"' and words[3] == '#"propyl"'
+
+
+def test_table_fit_shrinks_padding_before_the_table(doc):
+    from si_assistant.compile.document import TABLE_FIT_DEFINITION
+    assert "set table(inset: (x: pad / 2" in TABLE_FIT_DEFINITION
+    assert "calc.max(6pt" in TABLE_FIT_DEFINITION
