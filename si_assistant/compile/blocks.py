@@ -173,6 +173,28 @@ def _split_at(runs: list[Run], index: int) -> list[Run]:
     return out
 
 
+def _adduct_or_none(label: str):
+    try:
+        return chem.parse_adduct(label)
+    except chem.ChemError:
+        return None
+
+
+def ion_formula_runs(formula: str, adduct, style) -> list[Run]:
+    """The ion's formula after "calcd for", as Project settings ▸ HRMS formula says:
+    "plain" C12H12N, "charge" C12H12N⁺ or "brackets" [C12H12N]⁺ (charge superscript,
+    with the radical dot of [M]+• kept: C8H10O⁺•)."""
+    runs = formula_runs(formula)
+    if style not in ("charge", "brackets") or adduct is None or not adduct.charge:
+        return runs
+    z = adduct.charge
+    charge = (f"{abs(z)}" if abs(z) > 1 else "") + ("+" if z > 0 else "−") + \
+        ("•" if adduct.radical else "")
+    if style == "brackets":
+        runs = [R("[")] + runs + [R("]")]
+    return runs + [R(charge, valign=SUPER)]
+
+
 def hrms_sentence(project, compound) -> list[Run]:
     value = _value(compound, "hrms")
     found_text = F.part_text(value.get("found"))
@@ -191,7 +213,9 @@ def hrms_sentence(project, compound) -> list[Run]:
     if result is not None:
         peak = result.matched if (result.matched is not None and not result.out_of_tolerance) \
             else result.monoisotopic
-        runs += [R(" calcd for ")] + formula_runs(peak.formula) + [R(f" {peak.mz:.4f}")]
+        runs += [R(" calcd for ")] + ion_formula_runs(peak.formula, _adduct_or_none(adduct),
+                                                       project.settings.get("hrms_formula_style"))
+        runs += [R(f" {peak.mz:.4f}")]
         if found is not None:
             runs += [R(f"; found {found:.4f}")]
     elif found is not None:

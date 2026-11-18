@@ -174,7 +174,7 @@ def hrms_species(mol, value: dict) -> HrmsSpecies | None:
     # Automatic: the largest piece that is not a common counter-ion (e.g. the cation of a
     # triflate or NTf2 salt, the anion of a sodium or NBu4 salt); the user's choice wins.
     automatic = choices[1 + chem.main_species(pieces)]
-    if _loses_more_than(automatic[2], whole, F.part_text(value.get("adduct"))):
+    if drawn_counter_ion_loss(mol, F.part_text(value.get("adduct"))):
         # e.g. [M−Br]+ for a bromide salt: M is the whole salt, which loses its anion
         automatic = choices[0]
     key = str(value.get("species", ""))
@@ -184,20 +184,93 @@ def hrms_species(mol, value: dict) -> HrmsSpecies | None:
     return HrmsSpecies(chosen[2], choices=choices, key=key, automatic=automatic)
 
 
-def _loses_more_than(piece: chem.MolInfo, whole: chem.MolInfo, adduct: str) -> bool:
-    """True when the adduct removes atoms `piece` does not have but the whole structure
-    has: then M must be the whole structure (a salt that loses its counter-ion)."""
+def _losses(adduct: str) -> Counter | None:
+    """What an adduct only takes away (e.g. {Br: 1} for [M−Br]+), or None when it adds
+    anything or takes nothing away (or can't be read)."""
     try:
         delta = chem.parse_adduct(adduct.strip() or "[M+H]+").delta
     except chem.ChemError:
+        return None
+    if not delta or any(n > 0 for n in delta.values()):
+        return None
+    return Counter({k: -n for k, n in delta.items()})
+
+
+def _times(counts, n: int) -> Counter:
+    return Counter({k: v * n for k, v in counts.items()})
+
+
+def drawn_counter_ion_loss(mol, adduct: str) -> bool:
+    """True when the adduct takes away whole pieces drawn in the structure: [M−Br]+ and a
+    Br⁻ drawn beside the cation, [M−2Br]2+ and two of them. Then M is the whole salt as
+    drawn, and what is removed is that drawn counter-ion, never an atom of the compound
+    itself (the aryl Br of a 4-bromobenzylpyridinium bromide stays)."""
+    loss = _losses(adduct)
+    if mol is None or loss is None:
         return False
-    loss = {k: -n for k, n in delta.items() if n < 0}
-    if not loss:
+    pieces = chem.piece_counts(mol)
+    if len(pieces) < 2:
         return False
-    def can_lose(info: chem.MolInfo) -> bool:
-        counts = info.counts or Counter()
-        return all(counts.get(k, 0) >= n for k, n in loss.items())
-    return not can_lose(piece) and can_lose(whole)
+    return any(_times(info.counts, n) == loss
+               for _smi, info, drawn in pieces if info.counts
+               for n in range(1, drawn + 1))
+
+
+def _anion_names() -> dict[str, str]:
+    """Formula (Hill, no charge) -> name of each common counter-anion: {"Br": "Br", …}."""
+    out = {}
+    for smi in chem.COUNTER_ION_SMILES:
+        m = chem.Chem.MolFromSmiles(smi)
+        if m is not None and chem.Chem.GetFormalCharge(m) < 0:
+            info = chem.mol_info(m)
+            out[info.formula] = chem.counter_ion_name(info)
+    return out
+
+
+_ANION_NAMES: dict[str, str] = {}
+
+
+def counter_ion_missing(mol, adduct: str) -> str:
+    """The counter-anion (e.g. "Br⁻") an adduct such as [M−Br]+ takes away when the
+    structure has no such piece drawn; "" when it is drawn or the adduct takes away no
+    common counter-anion."""
+    loss = _losses(adduct)
+    if mol is None or loss is None or drawn_counter_ion_loss(mol, adduct):
+        return ""
+    if not _ANION_NAMES:
+        _ANION_NAMES.update(_anion_names())
+    for n in range(1, 4):
+        if any(v % n for v in loss.values()):
+            continue
+        one = chem.hill_formula(Counter({k: v // n for k, v in loss.items()}))
+        if one in _ANION_NAMES:
+            return f"{n if n > 1 else ''}{_ANION_NAMES[one]}⁻"
+    return ""
+
+
+def suggested_salt_adduct(mol) -> str | None:
+    """For a salt drawn with its counter-ion(s), the adduct that names them: [M−Br]+ for a
+    pyridinium bromide, [M−2Br]2+ for a dibromide, [M−Na]− for a sodium carboxylate.
+    None when the structure is not such a salt (one piece, charges that don't add up to
+    zero, or several different counter-ions)."""
+    if mol is None:
+        return None
+    try:
+        pieces = chem.piece_counts(mol)
+        whole = chem.mol_info(mol)
+    except chem.ChemError:
+        return None
+    if len(pieces) < 2 or whole.charge != 0:
+        return None
+    main = chem.main_species([(smi, info) for smi, info, _n in pieces])
+    others = [p for i, p in enumerate(pieces) if i != main]
+    if len(others) != 1 or not others[0][1].charge or not chem.is_counter_ion(others[0][0]):
+        return None
+    _smi, ion, n = others[0]
+    z = -ion.charge * n
+    count = f"{n}" if n > 1 else ""
+    sign = "+" if z > 0 else "-"
+    return f"[M−{count}{chem.counter_ion_name(ion)}]{abs(z) if abs(z) > 1 else ''}{sign}"
 
 
 def suggested_adduct(info: chem.MolInfo) -> str | None:
@@ -341,6 +414,17 @@ def all_warnings(project, compound, id_report: IdReport, labels=None) -> list[Wa
             out.append(Warning("structure", "structure", generic_structure_message(atoms),
                                GENERIC_STRUCTURE_KEY, _fp(atoms)))
 
+    # A structure whose charges don't add up to zero: usually a salt drawn without its
+    # counter-ion, which then can't be named in the HRMS adduct ([M−Br]⁺)
+    if info is not None and info.charge:
+        out.append(Warning(
+            "structure", "structure",
+            f"The structure's charges add up to {'+' if info.charge > 0 else '−'}"
+            f"{abs(info.charge)}, not zero. "
+            "If it is a salt, draw its counter-ion (e.g. Br⁻) beside it: it is then part of "
+            "the structure shown in the SI and named in the HRMS adduct ([M−Br]⁺).",
+            "structure:charge", _fp(smiles)))
+
     # 1. HRMS
     if "hrms" in keys:
         value = compound.values.get("hrms")
@@ -363,6 +447,16 @@ def all_warnings(project, compound, id_report: IdReport, labels=None) -> list[Wa
         result, problem = compound_hrms(project, compound)
         if problem and not problem.startswith("HRMS formula"):
             out.append(Warning("hrms", "hrms", problem, "hrms:ppm", fp, old))
+        missing = counter_ion_missing(mol, F.part_text(value.get("adduct"))) \
+            if not F.part_text(value.get("formula")).strip() else ""
+        if missing:
+            out.append(Warning(
+                "hrms", "hrms",
+                f"The adduct {chem.adduct_display(F.part_text(value.get('adduct')))} takes "
+                f"away a {missing} counter-ion, but the structure has none drawn as a "
+                "separate piece, so the atoms are taken from the compound itself. Draw the "
+                "counter-ion in the structure (or choose another adduct).",
+                "hrms:counter-ion", fp, old))
         if sp is not None:
             hint = charged_adduct_hint(sp.info, F.part_text(value.get("adduct")))
             if hint:

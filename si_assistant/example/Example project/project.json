@@ -28,6 +28,7 @@
   ],
   "journal_style": "ACS",
   "hrms_tolerance_ppm": 5.0,
+  "hrms_formula_style": "plain",
   "auto_nmr_31P": false,
   "auto_nmr_11B": false,
   "compile_structures": "pictures",

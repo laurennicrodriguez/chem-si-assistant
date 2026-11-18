@@ -395,3 +395,58 @@ def test_adduct_list_has_counter_ion_losses():
     for label in ("[M−H]+", "[M−Cl]+", "[M−Br]+", "[M−I]+", "[M−BF4]+", "[M−PF6]+",
                   "[M−OTf]+"):
         assert label in fields.ADDUCTS
+
+
+def test_counter_ion_loss_takes_the_drawn_piece_never_an_atom_of_the_compound():
+    """1o (4-bromobenzylpyridinium bromide): [M−Br]+ removes the drawn Br⁻, so the aryl Br
+    stays (C12H11BrN+ 248.0069), not the aryl Br (C12H11N+ 169.0886)."""
+    mol = chem.parse_structure("Brc1ccc(C[n+]2ccccc2)cc1.[Br-]")
+    assert checks.drawn_counter_ion_loss(mol, "[M−Br]+")
+    sp = checks.hrms_species(mol, {"adduct": "[M−Br]+"})
+    r = checks.hrms_calc(sp.info, "[M−Br]+", "248.0069", 5)
+    assert r.monoisotopic.formula == "C12H11BrN" and abs(r.monoisotopic.mz - 248.0069) < 1e-4
+    assert checks.counter_ion_missing(mol, "[M−Br]+") == ""
+
+
+def test_counter_ion_named_but_not_drawn_is_reported():
+    cation = chem.parse_structure("Brc1ccc(C[n+]2ccccc2)cc1")
+    assert not checks.drawn_counter_ion_loss(cation, "[M−Br]+")
+    assert checks.counter_ion_missing(cation, "[M−Br]+") == "Br⁻"
+    assert checks.counter_ion_missing(cation, "[M−OTf]+") == "OTf⁻"
+    assert checks.counter_ion_missing(cation, "[M−H]+") == ""      # (not a counter-ion)
+    assert checks.counter_ion_missing(cation, "[M+H]+") == ""
+
+
+def test_salt_adduct_suggestions():
+    s = checks.suggested_salt_adduct
+    assert s(chem.parse_structure("[Br-].c1cc[n+](Cc2ccccc2)cc1")) == "[M−Br]+"
+    assert s(chem.parse_structure("C[n+]1cccc(C(N)=O)c1.[I-]")) == "[M−I]+"
+    assert s(chem.parse_structure("F[B-](F)(F)F.c1cc[n+](C)cc1")) == "[M−BF4]+"
+    assert s(chem.parse_structure("F[P-](F)(F)(F)(F)F.c1cc[n+](C)cc1")) == "[M−PF6]+"
+    assert s(chem.parse_structure("[O-]S(=O)(=O)C(F)(F)F.c1cc[n+](C)cc1")) == "[M−OTf]+"
+    assert s(chem.parse_structure("[Br-].[Br-].c1cc[n+](C[n+]2ccccc2)cc1")) == "[M−2Br]2+"
+    assert s(chem.parse_structure("CCCCCC(=O)[O-].[Na+]")) == "[M−Na]-"
+    assert s(chem.parse_structure("c1cc[n+](C)cc1")) is None         # (no counter-ion drawn)
+    assert s(chem.parse_structure("CCO")) is None
+    for smiles in ("[Br-].c1cc[n+](Cc2ccccc2)cc1", "[Br-].[Br-].c1cc[n+](C[n+]2ccccc2)cc1",
+                   "[O-]S(=O)(=O)C(F)(F)F.c1cc[n+](C)cc1"):
+        mol = chem.parse_structure(smiles)
+        adduct = s(mol)
+        sp = checks.hrms_species(mol, {"adduct": adduct})
+        assert sp.info.charge == 0 and checks.hrms_calc(sp.info, adduct, "", 5).peaks
+
+
+def test_ion_formula_styles():
+    from si_assistant.compile.blocks import ion_formula_runs
+
+    def text(style, adduct="[M−Br]+"):
+        runs = ion_formula_runs("C12H12N", chem.parse_adduct(adduct), style)
+        return "".join(r.text if r.valign == "normal" else f"<{r.valign}:{r.text}>"
+                       for r in runs)
+    assert text("plain") == "C<sub:12>H<sub:12>N"
+    assert text(None) == "C<sub:12>H<sub:12>N"
+    assert text("charge") == "C<sub:12>H<sub:12>N<super:+>"
+    assert text("brackets") == "[C<sub:12>H<sub:12>N]<super:+>"
+    assert text("brackets", "[M−2Br]2+") == "[C<sub:12>H<sub:12>N]<super:2+>"
+    assert text("charge", "[M−H]-") == "C<sub:12>H<sub:12>N<super:−>"
+    assert text("charge", "[M]+•") == "C<sub:12>H<sub:12>N<super:+•>"

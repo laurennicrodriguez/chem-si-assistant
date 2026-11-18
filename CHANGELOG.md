@@ -6,11 +6,18 @@ program's update check shows.)
 
 ## [Unreleased]
 
-- **More HRMS adducts.** [M−H]⁺, for an ion that has lost a hydride (e.g. a
-  dihydropyridine seen as its pyridinium cation), and a salt that has lost its
-  counter-ion: [M−Cl]⁺, [M−Br]⁺, [M−I]⁺, [M−BF4]⁺, [M−PF6]⁺, [M−OTf]⁺, [M−OTs]⁺ and
-  [M−NTf2]⁺. With these, M is the whole salt as drawn. Typed adducts may use OTf, OTs,
-  OMs, NTf2, OAc, TFA and BArF for those counter-ions.
+- **HRMS of salts.** A salt drawn with its counter-ion (e.g. a pyridinium bromide) gets
+  the adduct that names it, [M−Br]⁺, [M−I]⁺, [M−OTf]⁺ or [M−2Br]²⁺, picked automatically
+  when the structure is added and still changeable. M is then the whole salt as drawn,
+  and only the drawn counter-ion is taken away: a bromine in the compound itself (a
+  4-bromobenzyl group) is never removed. The adduct list also has [M−H]⁺ (a hydride
+  lost, e.g. a dihydropyridine seen as its pyridinium cation) and [M−Cl]⁺, [M−Br]⁺,
+  [M−I]⁺, [M−BF4]⁺, [M−PF6]⁺, [M−OTf]⁺, [M−OTs]⁺, [M−NTf2]⁺; typed adducts may use OTf,
+  OTs, OMs, NTf2, OAc, TFA and BArF.
+- **HRMS formula style.** Project settings ▸ Output ▸ **HRMS formula**: the ion's formula
+  after "calcd for" as C₁₂H₁₂N, C₁₂H₁₂N⁺ or [C₁₂H₁₂N]⁺.
+- **New warnings:** a structure whose charges don't add up to zero (a salt drawn without
+  its counter-ion), and an adduct such as [M−Br]⁺ whose counter-ion is not drawn.
 - **Tables fit their words.** Words in a table are no longer hyphenated ("Addi-tive") or
   squeezed into the next column. Every column is at least as wide as its longest word,
   and the rest of the width goes to the columns with the most text. Long names can still
