@@ -27,7 +27,11 @@ MASS_UNITS = ("mg", "g", "µg")
 IONIZATION_METHODS = ("ESI", "APCI", "EI", "CI", "APPI", "DART", "FAB", "MALDI")
 # ([M−H]+: a hydride lost, e.g. a dihydropyridine or an amine seen as its iminium or
 # pyridinium cation)
+# ([M−Br]+ and the like: a salt, drawn with its counter-ion, that has lost it; M is then
+# the whole salt.)
 ADDUCTS = ("[M+H]+", "[M+Na]+", "[M+K]+", "[M+NH4]+", "[M]+", "[M]+•", "[M−H]+",
+           "[M−Cl]+", "[M−Br]+", "[M−I]+", "[M−BF4]+", "[M−PF6]+", "[M−OTf]+",
+           "[M−OTs]+", "[M−NTf2]+",
            "[M−H]−", "[M+Cl]−", "[M+HCOO]−")
 NUCLEI = ("1H", "13C", "19F", "31P", "11B", "15N", "29Si", "2H", "77Se", "119Sn", "195Pt")
 SPECTRUM_TYPES = ("1H", "13C", "19F", "31P", "11B", "Other NMR", "2D NMR", "HPLC/SFC", "IR",

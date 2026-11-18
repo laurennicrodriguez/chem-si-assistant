@@ -213,6 +213,14 @@ def mol_info(mol: Chem.Mol) -> MolInfo:
 # ---------------------------------------------------------------------- adducts
 
 _FORMULA_TOKEN = re.compile(r"([A-Z][a-z]?)(\d*)")
+# Common counter-ions an adduct may name by abbreviation, e.g. [M−OTf]+ for a triflate
+# salt that has lost its anion. Read as these formulas (a whole part only: "OTs" is a
+# tosylate, never O + tennessine).
+ADDUCT_ABBREVIATIONS = {
+    "OTf": "CF3SO3", "TfO": "CF3SO3", "OTs": "C7H7SO3", "TsO": "C7H7SO3",
+    "OMs": "CH3SO3", "MsO": "CH3SO3", "NTf2": "C2F6NO4S2", "Tf2N": "C2F6NO4S2",
+    "OAc": "C2H3O2", "AcO": "C2H3O2", "TFA": "C2F3O2", "BArF": "C32H12BF24",
+}
 _ADDUCT = re.compile(r"^\[(\d*)M(?P<mods>(?:[+\-−][^+\-−\]]+)*)\](?P<z>\d*)(?P<sign>[+\-−])(?P<rad>[•·.]?)$")
 _SUPER_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 _MOD = re.compile(rf"([+\-−])(\d*)([A-Za-z0-9{_SUPER_DIGITS}]+)")
@@ -569,6 +577,7 @@ def parse_adduct(label: str) -> Adduct:
     delta: Counter = Counter()
     for sign, mult, formula in (p.groups() for p in pieces):
         n = int(mult or 1) * (1 if sign == "+" else -1)
+        formula = ADDUCT_ABBREVIATIONS.get(formula, formula)
         for key, count in _labelled_formula(_SUPER_ISOTOPE.sub(isotope, formula)).items():
             delta[key] += n * count
     z = int(m.group("z") or 1) * (1 if m.group("sign") == "+" else -1)
