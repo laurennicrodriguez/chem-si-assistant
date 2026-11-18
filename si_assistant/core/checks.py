@@ -211,9 +211,22 @@ def drawn_counter_ion_loss(mol, adduct: str) -> bool:
     pieces = chem.piece_counts(mol)
     if len(pieces) < 2:
         return False
-    return any(_times(info.counts, n) == loss
-               for _smi, info, drawn in pieces if info.counts
-               for n in range(1, drawn + 1))
+    if any(_times(info.counts, n) == loss
+           for _smi, info, drawn in pieces if info.counts
+           for n in range(1, drawn + 1)):
+        return True
+    # (a counter-ion drawn in parts, e.g. BF4⁻ as BF3 and F⁻: all of them together)
+    return _counter_ion_total(pieces) == loss
+
+
+def _counter_ion_total(pieces) -> Counter:
+    """Every piece but the compound itself (the automatic M) added up."""
+    main = chem.main_species([(smi, info) for smi, info, _n in pieces])
+    total: Counter = Counter()
+    for i, (_smi, info, n) in enumerate(pieces):
+        if i != main:
+            total.update(_times(info.counts or {}, n))
+    return total
 
 
 def _anion_names() -> dict[str, str]:
@@ -264,7 +277,14 @@ def suggested_salt_adduct(mol) -> str | None:
         return None
     main = chem.main_species([(smi, info) for smi, info, _n in pieces])
     others = [p for i, p in enumerate(pieces) if i != main]
-    if len(others) != 1 or not others[0][1].charge or not chem.is_counter_ion(others[0][0]):
+    if len(others) > 1:
+        # a counter-ion drawn in parts (BF4⁻ as BF3 and F⁻): named by them all together
+        charge = sum(info.charge * n for _smi, info, n in others)
+        if not charge:
+            return None
+        ion = chem.info_from_counts(_counter_ion_total(pieces), charge)
+        others = [("", ion, 1)]
+    elif not others[0][1].charge or not chem.is_counter_ion(others[0][0]):
         return None
     _smi, ion, n = others[0]
     z = -ion.charge * n
@@ -314,6 +334,12 @@ def compound_hrms(project, compound) -> tuple[HrmsResult | None, str]:
         result = hrms_calc(info, F.part_text(value.get("adduct")),
                            F.part_text(value.get("found")), ms_reports.tolerance(project))
     except chem.ChemError as e:
+        adduct = F.part_text(value.get("adduct"))
+        if sp.manual and drawn_counter_ion_loss(project.read_structure(compound), adduct):
+            return None, (f"The typed M formula ({species_label(info)}) is the compound "
+                          f"without its counter-ion, but {chem.adduct_display(adduct)} takes "
+                          "the counter-ion away from M. Clear the M formula box (the "
+                          "structure's own counter-ion is then used), or choose [M]⁺.")
         return None, str(e)
     if result.out_of_tolerance:
         return result, (f"HRMS error {result.ppm:+.1f} ppm is outside the "
