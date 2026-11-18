@@ -450,3 +450,29 @@ def test_ion_formula_styles():
     assert text("brackets", "[M−2Br]2+") == "[C<sub:12>H<sub:12>N]<super:2+>"
     assert text("charge", "[M−H]-") == "C<sub:12>H<sub:12>N<super:−>"
     assert text("charge", "[M]+•") == "C<sub:12>H<sub:12>N<super:+•>"
+
+
+def test_a_counter_ion_drawn_in_parts():
+    """BF4⁻ drawn as BF3 and F⁻ (as ChemDraw sometimes pastes it) is still the BF4⁻ that
+    [M−BF4]+ takes away."""
+    mol = chem.parse_structure("FB(F)F.[F-].c1ccc(-[n+]2ccccc2)cc1")
+    assert checks.suggested_salt_adduct(mol) == "[M−BF4]+"
+    assert checks.drawn_counter_ion_loss(mol, "[M−BF4]+")
+    sp = checks.hrms_species(mol, {"adduct": "[M−BF4]+"})
+    assert checks.hrms_calc(sp.info, "[M−BF4]+", "", 5).monoisotopic.formula == "C11H10N"
+
+
+def test_typed_cation_formula_with_a_counter_ion_loss_says_what_to_do(project):
+    from si_assistant.core.compound_ids import IdReport
+    s = project.add_section("data", "Salts")
+    c = project.add_compound(s.id, name="1c")
+    project.set_structure(c, "[Br-].c1cc[n+](Cc2ccccc2)cc1") \
+        if hasattr(project, "set_structure") else project.write_structure(c, "[Br-].c1cc[n+](Cc2ccccc2)cc1")
+    if "hrms" not in c.field_keys:
+        project.add_field(c, {"key": "hrms"})
+    c.values["hrms"] = {"adduct": "[M−Br]+", "found": "170.0962", "formula": "C12H12N+"}
+    _result, problem = checks.compound_hrms(project, c)
+    assert "Clear the M formula box" in problem
+    c.values["hrms"]["formula"] = ""
+    result, problem = checks.compound_hrms(project, c)
+    assert problem == "" and result.monoisotopic.formula == "C12H12N"
