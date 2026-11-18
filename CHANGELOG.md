@@ -8,8 +8,10 @@ program's update check shows.)
 
 - **Tables fit their words.** Words in a table are no longer hyphenated ("Addi-tive") or
   squeezed into the next column. Every column is at least as wide as its longest word,
-  and the rest of the width goes to the columns with the most text. A table too wide even
-  then is printed a little smaller so it fits the page.
+  and the rest of the width goes to the columns with the most text. Long names can still
+  wrap after a hyphen. When the widest words and pictures only just fit, the space between
+  the columns is narrowed first; only a table too wide even then is printed a little
+  smaller so it fits the page.
 - **Italic prefixes in compound names.** The compiled SI prints the conventional italics in
   compound names: *N*-, *N*,*N*-, *O*-, *S*-, *tert*-, *sec*-, *cis*/*trans*, (*E*)/(*Z*),
   (*R*)/(*S*) and *o*-/*m*-/*p*-. Typing *…* in a name chooses the italics by hand instead.
