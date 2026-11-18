@@ -458,3 +458,34 @@ def test_a_scheme_without_its_label_is_not_numbered_and_mentions_say_why(doc):
     warnings = [w for w in checks.project_warnings(p) if w.check == "mention"]
     assert len(warnings) == 1 and "printed without a label" in warnings[0].message
     assert "Label and caption" in warnings[0].message
+
+
+def test_table_columns_fit_their_words(doc):
+    """Table words are never hyphenated or squeezed into the next column: the columns
+    are chosen by si-fit-table from each cell's text and its words."""
+    p, d = doc
+    t = Table.new(2, 2)
+    t.rows[0] = [Cell("**OH Additive**"), Cell("Yield 1,4 RR")]
+    t.rows[1] = [Cell("Rh(cod)_{2}BF_{4} (5 mol%)"), Cell("whole", colspan=1)]
+    code = builder(p).table_code(t, "here")
+    assert code.startswith("si-fit-table(2, (")
+    assert "widths => table(columns: widths," in code
+    # the bold header's two words, each still bold, measured on their own
+    assert '#strong[#"OH"]' in code and '#strong[#"Additive"]' in code
+    assert '[#"(5"], [#"mol%)"]' in code
+
+
+def test_cell_words_split_at_spaces_and_keep_formatting(doc):
+    p, d = doc
+    b = builder(p)
+    assert b.cell_words("THF/MeOH 9:1", "here") == ['#"THF/MeOH"', '#"9:1"']
+    words = b.cell_words("K_{2}CO_{3}  triol", "here")
+    assert len(words) == 2 and "#sub[" in words[0]
+    assert b.cell_words("", "here") == []
+
+
+def test_table_fit_definition_is_in_every_document(doc):
+    from si_assistant.compile.document import TABLE_FIT_DEFINITION
+    p, d = doc
+    assert TABLE_FIT_DEFINITION in builder(p).document()
+    assert "hyphenate: false" in TABLE_FIT_DEFINITION
