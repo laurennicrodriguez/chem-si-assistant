@@ -358,3 +358,40 @@ def test_formula_toggle_after_a_non_bmp_character(editor):
     doc = editor.edit.document()
     assert text_checks.subscript_formula(doc, doc.characterCount() - 2)
     assert editor.markup() == "𝛼-pinene in CH_{2}Cl_{2} "
+
+
+def test_counter_ion_adducts_read_abbreviations():
+    from si_assistant.core import chem
+    assert chem.parse_adduct("[M−OTf]+").delta == chem.parse_adduct("[M−CF3SO3]+").delta
+    assert chem.parse_adduct("[M−OTs]+").delta == chem.parse_adduct("[M−C7H7SO3]+").delta
+    assert chem.parse_adduct("[M−NTf2]+").delta == chem.parse_adduct("[M−C2F6NO4S2]+").delta
+    assert chem.adduct_display("[M−Br]+") == "[M−Br]⁺"
+
+
+def test_a_salt_losing_its_counter_ion_uses_the_whole_salt():
+    """[M−Br]+ for a pyridinium bromide: M is the whole salt (the cation alone has no Br),
+    giving the cation's m/z; [M]+ still uses the cation; a typed choice still wins."""
+    from si_assistant.core import chem, checks
+    salts = {"[M−Br]+": "[Br-].c1cc[n+](Cc2ccccc2)cc1",
+             "[M−Cl]+": "[Cl-].c1cc[n+](Cc2ccccc2)cc1",
+             "[M−I]+": "[I-].c1cc[n+](Cc2ccccc2)cc1",
+             "[M−BF4]+": "F[B-](F)(F)F.c1cc[n+](Cc2ccccc2)cc1",
+             "[M−PF6]+": "F[P-](F)(F)(F)(F)F.c1cc[n+](Cc2ccccc2)cc1",
+             "[M−OTf]+": "[O-]S(=O)(=O)C(F)(F)F.c1cc[n+](Cc2ccccc2)cc1",
+             "[M−OTs]+": "Cc1ccc(S(=O)(=O)[O-])cc1.c1cc[n+](Cc2ccccc2)cc1"}
+    for adduct, smiles in salts.items():
+        sp = checks.hrms_species(chem.parse_structure(smiles), {"adduct": adduct})
+        assert sp.automatic[0] == "whole", adduct
+        r = checks.hrms_calc(sp.info, adduct, "170.0964", 5)
+        assert r.monoisotopic.formula == "C12H12N" and abs(r.monoisotopic.mz - 170.0964) < 1e-4
+    mol = chem.parse_structure(salts["[M−Br]+"])
+    assert checks.hrms_species(mol, {"adduct": "[M]+"}).info.formula == "C12H12N"
+    cation = next(c[0] for c in checks.hrms_species(mol, {}).choices if c[0] != "whole")
+    chosen = checks.hrms_species(mol, {"adduct": "[M−Br]+", "species": cation})
+    assert chosen.info.formula == "C12H12N"   # (the user's choice wins; the calc then warns)
+
+
+def test_adduct_list_has_counter_ion_losses():
+    for label in ("[M−H]+", "[M−Cl]+", "[M−Br]+", "[M−I]+", "[M−BF4]+", "[M−PF6]+",
+                  "[M−OTf]+"):
+        assert label in fields.ADDUCTS

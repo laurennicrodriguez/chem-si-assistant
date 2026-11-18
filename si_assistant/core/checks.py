@@ -11,6 +11,7 @@ import hashlib
 import heapq
 import math
 import re
+from collections import Counter
 from dataclasses import dataclass
 
 from . import chem, impurities, ms_reports, nmr_parse
@@ -173,11 +174,30 @@ def hrms_species(mol, value: dict) -> HrmsSpecies | None:
     # Automatic: the largest piece that is not a common counter-ion (e.g. the cation of a
     # triflate or NTf2 salt, the anion of a sodium or NBu4 salt); the user's choice wins.
     automatic = choices[1 + chem.main_species(pieces)]
+    if _loses_more_than(automatic[2], whole, F.part_text(value.get("adduct"))):
+        # e.g. [M−Br]+ for a bromide salt: M is the whole salt, which loses its anion
+        automatic = choices[0]
     key = str(value.get("species", ""))
     chosen = next((c for c in choices if c[0] == key), None)
     if chosen is None:
         key, chosen = "", automatic
     return HrmsSpecies(chosen[2], choices=choices, key=key, automatic=automatic)
+
+
+def _loses_more_than(piece: chem.MolInfo, whole: chem.MolInfo, adduct: str) -> bool:
+    """True when the adduct removes atoms `piece` does not have but the whole structure
+    has: then M must be the whole structure (a salt that loses its counter-ion)."""
+    try:
+        delta = chem.parse_adduct(adduct.strip() or "[M+H]+").delta
+    except chem.ChemError:
+        return False
+    loss = {k: -n for k, n in delta.items() if n < 0}
+    if not loss:
+        return False
+    def can_lose(info: chem.MolInfo) -> bool:
+        counts = info.counts or Counter()
+        return all(counts.get(k, 0) >= n for k, n in loss.items())
+    return not can_lose(piece) and can_lose(whole)
 
 
 def suggested_adduct(info: chem.MolInfo) -> str | None:
