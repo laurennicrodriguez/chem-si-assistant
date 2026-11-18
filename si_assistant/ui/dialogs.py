@@ -162,6 +162,15 @@ class ProjectSettingsDialog(QDialog):
         # the box is changed: see apply)
         self._tolerance_shown = self.tolerance.value()
         oform.addRow("HRMS tolerance:", self.tolerance)
+        self.hrms_formula = QComboBox()
+        for key, shown in F.HRMS_FORMULA_STYLES.items():
+            self.hrms_formula.addItem(shown, key)
+        self.hrms_formula.setToolTip(
+            "How the ion's formula prints after “calcd for” in each HRMS line: without its "
+            "charge, with it (C₁₂H₁₂N⁺), or in brackets with it ([C₁₂H₁₂N]⁺).")
+        self.hrms_formula.setCurrentIndex(max(0, self.hrms_formula.findData(
+            project.settings.get("hrms_formula_style", "plain"))))
+        oform.addRow("HRMS formula:", self.hrms_formula)
         spectra_note = QLabel("Spectra per page, the structure's position on them and the rest "
                               "of the spectra layout are set on the Spectra section's page in "
                               "the tree.")
@@ -335,6 +344,7 @@ class ProjectSettingsDialog(QDialog):
         headings.store_heading_numbers(s, self.heading_numbers.currentData())
         if self.tolerance.value() != self._tolerance_shown:
             s["hrms_tolerance_ppm"] = self.tolerance.value()
+        s["hrms_formula_style"] = self.hrms_formula.currentData()
         s["auto_nmr_31P"] = self.auto_31p.isChecked()
         s["auto_nmr_11B"] = self.auto_11b.isChecked()
         s["paste_dpi"] = self.paste_dpi.currentData()

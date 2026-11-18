@@ -387,7 +387,7 @@ def species(mol: Chem.Mol) -> list[tuple[str, MolInfo]]:
 
 # Recognised by structure: the canonical SMILES (without stereo or isotope labels) of each,
 # and of the free acid where a salt is often drawn with it (TfOH, TFA, MsOH, TsOH, HCl, HBr).
-_COUNTER_ION_SMILES = (
+COUNTER_ION_SMILES = (
     # halides (and HCl, HBr drawn next to an amine)
     "[F-]", "[Cl-]", "[Br-]", "[I-]", "Cl", "Br",
     # inorganic anions
@@ -428,7 +428,7 @@ def _counter_ion_key(mol: Chem.Mol) -> str:
 
 def _counter_ion_keys() -> frozenset[str]:
     keys = set()
-    for smi in _COUNTER_ION_SMILES:
+    for smi in COUNTER_ION_SMILES:
         mol = Chem.MolFromSmiles(smi)
         if mol is not None:   # (every entry is checked by a test)
             keys.add(_counter_ion_key(mol))
@@ -454,6 +454,32 @@ def main_species(pieces: list[tuple[str, MolInfo]]) -> int:
     NTf2 or BArF salt, and the anion of a sodium or tetrabutylammonium salt), or the
     largest piece when every piece is one (e.g. NBu4⁺ BF4⁻ itself)."""
     return next((i for i, (smi, _info) in enumerate(pieces) if not is_counter_ion(smi)), 0)
+
+
+def piece_counts(mol: Chem.Mol) -> list[tuple[str, MolInfo, int]]:
+    """The structure's pieces as in species(), each with how many times it is drawn
+    (e.g. a dication with two bromides: (cation, 1), (Br⁻, 2))."""
+    counted: dict[str, list] = {}
+    for frag in Chem.GetMolFrags(mol, asMols=True, sanitizeFrags=True):
+        smi = Chem.MolToSmiles(Chem.RemoveHs(frag))
+        if smi in counted:
+            counted[smi][2] += 1
+        else:
+            counted[smi] = [frag.GetNumHeavyAtoms(), mol_info(frag), 1]
+    ordered = sorted(counted.items(), key=lambda kv: -kv[1][0])
+    return [(smi, info, n) for smi, (_heavy, info, n) in ordered]
+
+
+# How a counter-ion is named in an adduct ([M−OTf]+): its formula (Hill order, no charge)
+# -> the abbreviation; any other is named by its formula ([M−BF4]+, [M−Br]+).
+_ABBREVIATION_OF = {"F6P": "PF6", "F6Sb": "SbF6", "CF3O3S": "OTf", "C7H7O3S": "OTs", "CH3O3S": "OMs",
+                    "C2F6NO4S2": "NTf2", "C2H3O2": "OAc", "C2F3O2": "TFA",
+                    "C32H12BF24": "BArF"}
+
+
+def counter_ion_name(info: MolInfo) -> str:
+    """"Br", "BF4", "OTf"…: a counter-ion as written in an adduct such as [M−Br]+."""
+    return _ABBREVIATION_OF.get(info.formula, info.formula)
 
 
 def main_piece(mol: Chem.Mol) -> Chem.Mol:

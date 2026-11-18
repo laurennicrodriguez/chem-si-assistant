@@ -939,6 +939,9 @@ class HrmsEditor(PartsEditor):
         not fill it again as an edit (and an undo step) of its own. (Typing on the page
         was saved before the structure was changed.)"""
         self._show_stored_found()
+        if not self.project.read_only and self._suggest_salt_adduct():
+            self.changed.emit()   # (saved; refresh_calculation runs for the new value)
+            return
         self.refresh_calculation()
 
     def _show_stored_found(self) -> None:
@@ -1015,13 +1018,31 @@ class HrmsEditor(PartsEditor):
         # reported as [M]+: fill that in (the adduct can still be changed afterwards).
         mol = self.project.read_structure(self.compound)
         sp = checks.hrms_species(mol, {"species": self._species_key})
-        suggestion = checks.suggested_adduct(sp.info) if sp else None
+        if self._species_key == "whole":   # the salt as drawn: name its counter-ion
+            suggestion = checks.suggested_salt_adduct(mol)
+        else:
+            suggestion = checks.suggested_adduct(sp.info) if sp else None
         if suggestion:
             set_part_value(self.widgets["adduct"], F.Part("adduct"), suggestion)
         self.changed.emit()
 
     def _current_value(self) -> dict:
-        return {"species": self._species_key, "formula": self.formula_edit.text()}
+        # (with the adduct: [M−Br]+ makes M the whole salt as drawn)
+        return {"species": self._species_key, "formula": self.formula_edit.text(),
+                "adduct": get_part_value(self.widgets["adduct"])}
+
+    def _suggest_salt_adduct(self) -> bool:
+        """A salt drawn with its counter-ion gets the adduct that names it ([M−Br]+ for a
+        bromide) when the adduct is still the default [M+H]+ or the plain [M]+ of its
+        cation; any other adduct chosen or typed is kept. True if it was changed."""
+        current = get_part_value(self.widgets["adduct"]) or "[M+H]+"
+        if current not in ("[M+H]+", "[M]+") or self._species_key not in ("", "whole"):
+            return False
+        suggestion = checks.suggested_salt_adduct(self.project.read_structure(self.compound))
+        if not suggestion or suggestion == current:
+            return False
+        set_part_value(self.widgets["adduct"], F.Part("adduct"), suggestion)
+        return True
 
     def _fill_species(self, sp) -> None:
         choices = sp.choices if sp and sp.choices else None
@@ -1063,7 +1084,8 @@ class HrmsEditor(PartsEditor):
         mol = self.project.read_structure(self.compound)
         auto = None
         try:
-            auto = checks.hrms_species(mol, {"species": self._species_key})
+            auto = checks.hrms_species(mol, {"species": self._species_key,
+                                             "adduct": get_part_value(self.widgets["adduct"])})
         except chem.ChemError:
             pass
         self._fill_species(auto)

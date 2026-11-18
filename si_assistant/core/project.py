@@ -191,6 +191,9 @@ def default_settings(title: str) -> dict[str, Any]:
         "affiliations": [],
         "journal_style": "ACS",
         "hrms_tolerance_ppm": 5.0,
+        # The HRMS "calcd for" formula: "plain" (C12H12N), "charge" (C12H12N+) or
+        # "brackets" ([C12H12N]+), the ion's charge as superscript (fields.HRMS_FORMULA_STYLES)
+        "hrms_formula_style": "plain",
         # (The spectra layout is on the Spectra section, core/spectra.py; older projects'
         # "spectra_per_page" and "structure_corner" are carried over into it.)
         # (The table of contents, cover heading and export choice live in "toc", "cover",

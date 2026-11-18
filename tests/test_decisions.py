@@ -289,8 +289,8 @@ def test_counter_ions_are_recognised_however_they_are_drawn():
 
 
 def test_every_listed_counter_ion_is_read_by_rdkit():
-    assert all(Chem.MolFromSmiles(s) is not None for s in chem._COUNTER_ION_SMILES)
-    assert len(chem._COUNTER_IONS) == len(set(chem._COUNTER_ION_SMILES))
+    assert all(Chem.MolFromSmiles(s) is not None for s in chem.COUNTER_ION_SMILES)
+    assert len(chem._COUNTER_IONS) == len(set(chem.COUNTER_ION_SMILES))
 
 
 @pytest.mark.parametrize("smiles, main", [

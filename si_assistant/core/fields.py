@@ -27,6 +27,9 @@ MASS_UNITS = ("mg", "g", "µg")
 IONIZATION_METHODS = ("ESI", "APCI", "EI", "CI", "APPI", "DART", "FAB", "MALDI")
 # ([M−H]+: a hydride lost, e.g. a dihydropyridine or an amine seen as its iminium or
 # pyridinium cation)
+# How the HRMS "calcd for" formula prints (Project settings ▸ Output ▸ HRMS formula):
+# key -> what the choice shows.
+HRMS_FORMULA_STYLES = {"plain": "C₁₂H₁₂N", "charge": "C₁₂H₁₂N⁺", "brackets": "[C₁₂H₁₂N]⁺"}
 # ([M−Br]+ and the like: a salt, drawn with its counter-ion, that has lost it; M is then
 # the whole salt.)
 ADDUCTS = ("[M+H]+", "[M+Na]+", "[M+K]+", "[M+NH4]+", "[M]+", "[M]+•", "[M−H]+",
