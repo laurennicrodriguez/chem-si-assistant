@@ -735,6 +735,9 @@ the defaults for all spectra:
   HPLC/SFC, for chromatograms with their integration tables) and its spectra are printed
   under the compound's data, across the page with the white margins cut off, without a
   figure label or structure box (a header typed for the spectrum is printed above it).
+  In the PDF they are shrunk together so they fit on the same page as the compound's
+  data; if that would make them smaller than about a third of their size, they start the
+  next page at full size instead.
   NMR spectra usually stay in the Spectra section. One spectrum can say otherwise:
   **Printed** in its compound's Spectra field ("As set for its kind", "With the compound's
   data" or "Spectra section").

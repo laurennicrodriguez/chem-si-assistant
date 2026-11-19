@@ -50,6 +50,7 @@ from ..core.references import to_hayagriva
 from ..core.tables import Table
 from .document import (ATTACHMENT_MAX_HEIGHT_IN, CM_PER_IN, HRMS_HEADING, PAGE_BREAK,
                        SPECTRA_HEADING, STRUCTURE_MAX, STYLES_DIR, TABLE_FIT_DEFINITION,
+                       INLINE_FIT_DEFINITION,
                        TEXT_WIDTH_IN, Builder, CompileError, CompileOptions, editor_scheme)
 from .text import format_chemistry, leave_alone
 
@@ -152,6 +153,7 @@ class Renderer:
     def source(self, b: Builder, rids: list[int]) -> str:
         parts = ['#import "style.typ": *', "#show: si-doc.with()",
                  headings.typst_set_rule(b.project.settings), TABLE_FIT_DEFINITION,
+                 INLINE_FIT_DEFINITION,
                  # (links in the PDF; here only their text)
                  "#let si-link(target, body) = body",
                  "#set page(header: none, footer: none, numbering: none, fill: white)"]

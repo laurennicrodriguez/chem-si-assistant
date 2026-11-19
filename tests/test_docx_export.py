@@ -142,6 +142,7 @@ def test_spectra_printed_with_the_compound(sample):
     b.assets.mkdir(parents=True, exist_ok=True)
     block = b.compound(c2)
     assert "si-spectrum(" in block and "13C" in block
+    assert "#si-fit-inline(" in block and "in * f" in block   # (shrunk to fit its page)
     # one spectrum says otherwise
     for item in c2.values["spectra"]:
         if item["type"] == "13C":
