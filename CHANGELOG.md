@@ -6,6 +6,19 @@ program's update check shows.)
 
 ## [Unreleased]
 
+- **Export to Word.** File ▸ **Export to Word (.docx)…** (or "Word document" in the Compile
+  SI window) saves build/SI.docx: the text, compound data, captions, tables and references
+  are editable Word text and tables, with Word heading styles, the same heading numbers,
+  a Word table of contents and S-page numbers; structures, schemes, spectra and HRMS
+  reports are pictures drawn as in the PDF. "Include the spectra" can be unticked for a
+  smaller file.
+- **Procedures and compounds under their own headings.** A Data section with general
+  procedures prints them under a sub-heading ("General Procedures") and its compounds under
+  another ("Characterization Data"), both in the table of contents. The names can be
+  changed, or the sub-headings switched off, on the section's General procedures tab
+  (**Own headings**).
+- **Outline (1, A, i, a).** A new Heading numbers choice: the third level is numbered i, ii,
+  iii and the fourth a, b, c, so capital and small letters never follow each other.
 - **HRMS of salts.** A salt drawn with its counter-ion (e.g. a pyridinium bromide) gets
   the adduct that names it, [M−Br]⁺, [M−I]⁺, [M−OTf]⁺ or [M−2Br]²⁺, picked automatically
   when the structure is added and still changeable. M is then the whole salt as drawn,

@@ -1391,13 +1391,21 @@ class Builder:
         """A Data section at any depth: its heading, its general procedures and compound
         blocks one level below it."""
         out = [self.section_heading(level, [Run(section.name)])]
-        out += self.general_procedures(section, level + 1)
+        inner = level + 1
+        groups = self.project.group_headings(section)
+        grouped = bool(groups and self.project.general_procedures(section) and section.items)
+        if grouped:   # (the procedures and the compounds each under a sub-heading)
+            out.append(self.section_heading(level + 1, [Run(groups[0])]))
+            inner = level + 2
+        out += self.general_procedures(section, inner)
+        if grouped:
+            out.append(self.section_heading(level + 1, [Run(groups[1])]))
         for item in section.items:
             if isinstance(item, SchemePage):
-                out.append(self.scheme(item, level + 1))
+                out.append(self.scheme(item, inner))
             else:
-                out.append(self.compound(item, level=level + 1))
-                out += self.anchored_xray(item, level + 1)
+                out.append(self.compound(item, level=inner))
+                out += self.anchored_xray(item, inner)
         return "\n\n".join(x for x in out if x)
 
     def section_block(self, section: Section, level: int, compounds: list[Compound],

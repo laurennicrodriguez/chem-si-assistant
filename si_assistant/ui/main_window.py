@@ -30,7 +30,8 @@ from ..core.undo import UndoContext
 from . import (feedback_ui, help_ui, restart, rich_text, text_checks, theme, undo_keys,
                update_ui, wheel_guard)
 from ..compile.document import CompileOptions
-from .compile_ui import CompileDialog, PreviewWindow, open_file, run_compile, show_warnings
+from .compile_ui import (CompileDialog, PreviewWindow, open_file, run_compile,
+                         run_docx_export, show_warnings)
 from .compound_panel import CompoundPanel, make_read_only
 from .warnings_panel import WarningsPanel
 from .scheme_panel import SchemePanel
@@ -677,6 +678,9 @@ class MainWindow(QMainWindow):
         self.act_compile = act("Compile SI", self.compile_si, "Ctrl+Shift+B",
                                tip="Make the SI PDF (build/SI.pdf) from the whole project",
                                icon="compile")
+        self.act_export_word = act("Export to &Word (.docx)…", self.export_word,
+                                   tip="Make an editable Word document of the SI "
+                                       "(build/SI.docx)")
         self.act_preview = act("Preview", self.preview_current, "Ctrl+Shift+P",
                                tip="See the selected compound, scheme page or section as it will "
                                    "appear in the SI", icon="preview")
@@ -704,6 +708,8 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self.act_import_si)
         file_menu.addAction(self.act_xray)
+        file_menu.addSeparator()
+        file_menu.addAction(self.act_export_word)
         file_menu.addSeparator()
         file_menu.addActions([self.act_snapshot, self.act_trash, self.act_show_folder,
                               self.act_references, self.act_settings])
@@ -1032,6 +1038,7 @@ class MainWindow(QMainWindow):
             self.warnings_dock.hide()
         self.act_snapshot.setEnabled(writable)
         self.act_compile.setEnabled(writable)  # compiling writes to the project's build/ folder
+        self.act_export_word.setEnabled(writable)
         self.act_preview.setEnabled(writable and kind not in (None, "front_root", PROJECT_ITEM,
                                                               *BOTTOM_KINDS))
         for a in self.act_new_section.values():
@@ -3439,11 +3446,14 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "Snapshot saved",
                                 f"A zipped copy of the project was saved to:\n{path}")
 
-    def compile_si(self) -> None:
+    def export_word(self) -> None:
+        self.compile_si(word=True)
+
+    def compile_si(self, word: bool | None = None) -> None:
         if self.project is None or self.project.read_only:
             return
         self._flush_panel()
-        dlg = CompileDialog(self.project, self)
+        dlg = CompileDialog(self.project, self, word=word if word else None)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         self._check_lock()   # (compiling writes to build/: not once someone else has it)
@@ -3456,6 +3466,16 @@ class MainWindow(QMainWindow):
             # (held by OneDrive or a virus scanner, a read-only disk) say so and compile
             # anyway, as the choices are taken from the window (dlg.options()).
             self._save(dlg.remember)
+        if dlg.as_word.isChecked():
+            result = run_docx_export(self, self.project, dlg.options(),
+                                     dlg.word_spectra.isChecked())
+            if result is None:
+                return
+            self.statusBar().showMessage(f"Word document saved: {result.path}", 6000)
+            if dlg.open_pdf.isChecked():
+                open_file(result.path)
+            show_warnings(self, result, "Word document saved", "The Word document")
+            return
         if self._preview is not None:
             self._preview.release()
         result = run_compile(self, self.project, dlg.options())

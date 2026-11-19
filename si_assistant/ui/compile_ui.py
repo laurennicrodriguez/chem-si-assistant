@@ -134,7 +134,9 @@ class ExportTree(QTreeWidget):
 class CompileDialog(QDialog):
     """Choices made when compiling. They are remembered in the project settings."""
 
-    def __init__(self, project: Project, parent: QWidget | None = None):
+    def __init__(self, project: Project, parent: QWidget | None = None, word: bool | None = None):
+        """`word`: start with "Word document" chosen (File ▸ Export to Word…); None = as
+        last time."""
         super().__init__(parent)
         self.setWindowTitle("Compile SI")
         self.resize(640, 640)
@@ -171,10 +173,38 @@ class CompileDialog(QDialog):
         self.format_text = QCheckBox("Format chemistry text automatically (CDCl3 → CDCl₃, "
                                      "1H NMR → ¹H NMR, italic J, en-dashes)")
         self.format_text.setChecked(options.format_text)
-        self.open_pdf = QCheckBox("Open the PDF when it's ready")
+        self.open_pdf = QCheckBox("Open the file when it's ready")
         self.open_pdf.setChecked(True)
 
+        # What to make: the PDF, or a Word document to edit (compile/docx_export.py).
+        self.as_pdf = QRadioButton("PDF (build/SI.pdf)")
+        self.as_word = QRadioButton("Word document to edit (build/SI.docx): text, tables and "
+                                    "references editable; structures, schemes and spectra as "
+                                    "pictures")
+        output = QButtonGroup(self)
+        output.addButton(self.as_pdf)
+        output.addButton(self.as_word)
+        if word is None:
+            word = project.settings.get("compile_output") == "docx"
+        (self.as_word if word else self.as_pdf).setChecked(True)
+        self.word_spectra = QCheckBox("Include the spectra and HRMS reports in the Word "
+                                      "document (as pictures; makes a larger file)")
+        self.word_spectra.setChecked(bool(project.settings.get("docx_spectra", True)))
+        self.word_spectra.setEnabled(self.as_word.isChecked())
+        self.as_word.toggled.connect(self.word_spectra.setEnabled)
+        self.as_word.toggled.connect(
+            lambda on: self.setWindowTitle("Export to Word" if on else "Compile SI"))
+        if word:
+            self.setWindowTitle("Export to Word")
+
         form = QFormLayout()
+        outputs = QVBoxLayout()
+        for w in (self.as_pdf, self.as_word, self.word_spectra):
+            outputs.addWidget(w)
+        self.word_spectra.setContentsMargins(20, 0, 0, 0)
+        out_holder = QWidget()
+        out_holder.setLayout(outputs)
+        form.addRow("Make:", out_holder)
         structures = QVBoxLayout()
         for w in (self.pictures, self.acs, note):
             structures.addWidget(w)
@@ -194,8 +224,9 @@ class CompileDialog(QDialog):
                                      "out its sub-sections and its compounds' spectra):"), 1)
         include_row.addWidget(all_btn)
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("The SI is saved as <b>build/SI.pdf</b> in the project folder "
-                                "(with SI.typ, the source, next to it)."))
+        layout.addWidget(QLabel("The SI is saved in the project's <b>build</b> folder: "
+                                "<b>SI.pdf</b> (with SI.typ, the source, next to it) or "
+                                "<b>SI.docx</b>."))
         layout.addLayout(form)
         layout.addLayout(include_row)
         layout.addWidget(self.export, 1)
@@ -211,7 +242,9 @@ class CompileDialog(QDialog):
     def remember(self) -> None:
         o = self.options()
         self.project.settings.update({
-            "compile_structures": o.structures, "format_text": o.format_text})
+            "compile_structures": o.structures, "format_text": o.format_text,
+            "compile_output": "docx" if self.as_word.isChecked() else "pdf",
+            "docx_spectra": self.word_spectra.isChecked()})
         front.store_excluded(self.project.settings, o.excluded)
         if not self.project.read_only:
             self.project.save_settings()
@@ -301,9 +334,34 @@ def run_compile(parent: QWidget, project: Project, options: CompileOptions,
     return None
 
 
-def show_warnings(parent: QWidget, result: CompileResult, title: str) -> None:
+def run_docx_export(parent: QWidget, project: Project, options: CompileOptions,
+                    include_spectra: bool = True):
+    """Export build/SI.docx with a busy cursor (Typst draws the pictures in a worker
+    thread); problems are shown to the user, never raised. Returns a DocxResult or None."""
+    from ..compile.docx_export import export_docx
+    if project.read_only:
+        QMessageBox.warning(parent, "Could not export", "This project is open read-only, so "
+                            "the Word document cannot be saved into its build folder.")
+        return None
+    QGuiApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+    try:
+        # (it reads the project and uses Qt for pictures, so it runs here; it is quick
+        # except for Typst drawing the pictures, which lets the window redraw meanwhile)
+        return export_docx(project, options, image_info, convert_to_png, crop=content_box,
+                           include_spectra=include_spectra, background=in_background)
+    except CompileError as e:
+        QMessageBox.warning(parent, "Could not export", str(e))
+    except OSError as e:
+        QMessageBox.warning(parent, "Could not export",
+                            f"A file could not be read or written:\n\n{e}")
+    finally:
+        QGuiApplication.restoreOverrideCursor()
+    return None
+
+
+def show_warnings(parent: QWidget, result, title: str, what: str = "The PDF") -> None:
     if result.warnings:
-        QMessageBox.information(parent, title, "The PDF was made, with these notes:\n\n• "
+        QMessageBox.information(parent, title, f"{what} was made, with these notes:\n\n• "
                                 + "\n• ".join(result.warnings))
 
 

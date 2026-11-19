@@ -28,6 +28,8 @@ datas += collect_data_files("rdkit", includes=["Data/**/*"])
 # The package information of 'cryptography' and cffi, which holds their licence texts
 # (Apache-2.0 / BSD-3-Clause; MIT-0), so the licences always travel with the program.
 datas += copy_metadata("cryptography") + copy_metadata("cffi")
+# python-docx's blank document and its parts (Word export: File ▸ Export to Word).
+datas += collect_data_files("docx")
 
 a = Analysis(
     [str(Path(SPECPATH) / "launcher.py")],
@@ -38,6 +40,8 @@ a = Analysis(
         # Imported inside functions or by Qt itself, so PyInstaller may not see them.
         "PySide6.QtPdf", "PySide6.QtPdfWidgets", "PySide6.QtSvg", "rdkit.Chem.rdChemReactions",
         "pypdf", "spellchecker",
+        # Word export (imported only when it is used).
+        "si_assistant.compile.docx_export", "docx", "lxml", "lxml.etree", "lxml._elementpath",
         # pypdf looks for 'cryptography' only when it starts, and quietly does without it,
         # so make sure it comes along: without it, PDFs that instrument software saved with
         # edit restrictions (AES-encrypted, empty opening password) can't be read. It is

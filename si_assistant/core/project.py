@@ -76,6 +76,8 @@ GP_DIR = "procedures"            # general procedure texts: <section>/procedures
 SECTION_IMAGES_DIR = "images"    # pictures in Text sections
 # The sentence printed in a compound's block when it uses a general procedure. Words in
 # {braces} are filled in per compound (SPEC §13j); the GP's own text is printed once.
+DEFAULT_GP_HEADING = "General Procedures"
+DEFAULT_COMPOUNDS_HEADING = "Characterization Data"
 DEFAULT_GP_SENTENCE = "Prepared according to {GP} from {starting material} ({scale})."
 # Folder names are "<id>_<short readable name>". Kept short because Windows limits paths to
 # 260 characters and projects often live deep inside OneDrive/Dropbox folders.
@@ -3396,6 +3398,40 @@ class Project:
 
     def general_procedures(self, section: Section) -> list[dict[str, Any]]:
         return section.data.setdefault("general_procedures", [])
+
+    # In a Data section with general procedures and compounds, the procedures and the
+    # compounds each go under a sub-heading of their own (numbered like a sub-section), so
+    # the outline and the table of contents don't mix them. The names are the section's
+    # ("gp_heading", "compounds_heading" in section.json, stored only when changed) and
+    # the headings can be switched off ("group_headings": false).
+    def group_headings(self, section: Section) -> tuple[str, str] | None:
+        """(heading over the general procedures, heading over the compounds), or None when
+        this section prints them without (switched off)."""
+        d = section.data
+        if d.get("group_headings") is False:
+            return None
+        gp = str(d.get("gp_heading") or "").strip() or DEFAULT_GP_HEADING
+        compounds = str(d.get("compounds_heading") or "").strip() or DEFAULT_COMPOUNDS_HEADING
+        return gp, compounds
+
+    def set_group_headings(self, section_id: str, on: bool, gp_heading: str = "",
+                           compounds_heading: str = "") -> None:
+        self._check_writable()
+        section = self._data_section(section_id)
+        d = section.data
+        for key, value, default in (("gp_heading", gp_heading, DEFAULT_GP_HEADING),
+                                    ("compounds_heading", compounds_heading,
+                                     DEFAULT_COMPOUNDS_HEADING)):
+            value = value.strip()
+            if value and value != default:
+                d[key] = value
+            else:
+                d.pop(key, None)
+        if on:
+            d.pop("group_headings", None)
+        else:
+            d["group_headings"] = False
+        self.save_section(section)
 
     def all_general_procedures(self) -> list[tuple[Section, dict[str, Any]]]:
         return [(s, gp) for s in self.data_sections() for gp in self.general_procedures(s)]
