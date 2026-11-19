@@ -162,7 +162,8 @@ def test_attachments_add_remove_restore(project, data, tmp_path):
     src.write_bytes(b"%PDF one")
     c = project.add_compound(data.id)
     item = project.attach_compound_file(c, "spectra", src, {"type": "1H"})
-    assert item == {"file": "3a 1H.pdf", "type": "1H", "title": "", "struct_caption": ""}
+    assert item == {"file": "3a 1H.pdf", "type": "1H", "title": "", "struct_caption": "",
+                    "placement": "auto"}
     assert (c.folder / "spectra" / "3a 1H.pdf").read_bytes() == b"%PDF one"
     item2 = project.attach_compound_file(c, "spectra", src)  # same name -> renamed copy
     assert item2["file"] == "3a 1H (2).pdf"
@@ -171,7 +172,8 @@ def test_attachments_add_remove_restore(project, data, tmp_path):
     entry = project.list_trash()[0]
     project.restore_from_trash(entry.id)
     restored = reopen(project).compound(c.id).values["spectra"]
-    assert {"file": "3a 1H.pdf", "type": "1H", "title": "", "struct_caption": ""} in restored
+    assert {"file": "3a 1H.pdf", "type": "1H", "title": "", "struct_caption": "",
+                    "placement": "auto"} in restored
 
 
 def test_attachment_type_check(project, data, tmp_path):

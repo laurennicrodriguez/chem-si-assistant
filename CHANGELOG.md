@@ -6,6 +6,13 @@ program's update check shows.)
 
 ## [Unreleased]
 
+- **Spectra with the compound's data.** On the Spectra section's page, tick the kinds of
+  spectra (e.g. HPLC/SFC) to print under each compound's data instead of in the Spectra
+  section: across the page, white margins cut off, no figure label. Each spectrum can say
+  otherwise ("Printed" in its compound's Spectra field).
+- **Structures beside the text in Word.** The Compile SI window's "Structures in Word"
+  puts each compound's structure on the left or right of its title with the text
+  wrapping around it, instead of centred on its own line.
 - **Export to Word.** File ▸ **Export to Word (.docx)…** (or "Word document" in the Compile
   SI window) saves build/SI.docx: the text, compound data, captions, tables and references
   are editable Word text and tables, with Word heading styles, the same heading numbers,

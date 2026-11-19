@@ -53,6 +53,7 @@ REFERENCES_YML = "references.yml"
 
 TEXT_WIDTH_IN = 6.5           # US letter with 1 in margins
 STRUCTURE_MAX = (3.25, 2.6)   # inches (width, height) for structures under compound titles
+INLINE_SPECTRUM_MAX_IN = 4.5   # a spectrum printed with its compound's data, at most this tall
 ATTACHMENT_MAX_HEIGHT_IN = 8.0   # an Attachment section's PDF page or picture, at most
 CM_PER_IN = 2.54
 TYPST_IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".pdf"}
@@ -1302,6 +1303,7 @@ class Builder:
                                      "“Prepared according to…” sentence was left out.")
         out.append(paragraphs_to_typst(self.link_paragraphs(block.paragraphs, where),
                                        heading_offset=level, outlined_levels=0))
+        out += self.inline_spectra(compound)
         for index, fig in enumerate(block.figures):
             img = self.image(fig.path, (TEXT_WIDTH_IN, 4.0))
             item = self.labels.at(compound.id, index)
@@ -1313,6 +1315,55 @@ class Builder:
         if display_id == "ID?":
             self.warnings.append(f"“{compound.name or 'A compound'}” has no ID (printed as “ID?”).")
         return "\n\n".join(x for x in out if x)
+
+    def inline_spectra(self, compound: Compound) -> list[str]:
+        """The compound's spectra printed with its data (e.g. HPLC traces with their
+        integration tables; core/spectra.placement): each page across the text width (no
+        taller than INLINE_SPECTRUM_MAX_IN), its white margins cut off unless the
+        spectrum's own settings say otherwise, with the header typed for it (if any) above.
+        No figure label, no structure box."""
+        defaults = self.project.spectra_defaults()
+        problems: list[str] = []
+        try:
+            entries = spectra_mod.spectra_of(self.project, compound, page_count=pdf_page_count,
+                                             problems=problems, inline=True)
+        except _BAD_VALUE as e:
+            raise self.bad_value(compound, e, " (its spectra)") from e
+        self.warnings += problems
+        out = []
+        for sp in entries:
+            usable = self.usable_image(sp.path)
+            if usable is None:
+                continue
+            eff = spectra_mod.effective(defaults, sp.item, sp.key)
+            own = spectra_mod.overrides(sp.item, sp.key)
+            aspect = self.page_aspect(usable, sp.page)
+            crop = self.crop_box(sp.path, sp.page) if own.get("auto_crop", True) else None
+            left, top, right, bottom = crop or (0, 0, 1, 1)
+            shape = (aspect or 0.75) * (bottom - top) / max(right - left, 1e-6)
+            w = TEXT_WIDTH_IN
+            h = w * shape
+            if h > INLINE_SPECTRUM_MAX_IN:
+                w, h = INLINE_SPECTRUM_MAX_IN / shape, INLINE_SPECTRUM_MAX_IN
+            page_arg = f", page: {sp.page}" if sp.page else ""
+            img = (f"(w, h) => image({typst_string(self.rel(usable))}{page_arg}, width: w, "
+                   'height: h, fit: "contain")')
+            title = F.part_text(sp.item.get("title")).strip()
+            header = "none"
+            if title:
+                runs = [Run(title + (" (continued)" if sp.page_no > 1 else ""))]
+                header = f"[{runs_to_typst(format_nmr(runs) if self.options.format_text else runs)}]"
+                h += 0.3
+            args = [header, img, f"{aspect:.5f}" if aspect else "none"]
+            if crop:
+                args.append("crop: (" + ", ".join(f"{v:.4f}" for v in crop) + ")")
+            if eff["spectrum_frame"]:
+                args.append(f"frame: {eff['spectrum_frame_width']:g}pt + "
+                            f"rgb({typst_string(eff['spectrum_frame_color'])})")
+            out.append(f"#block(width: 100%, breakable: false, above: 0.8em, below: 0.8em, "
+                       f"align(center, box(width: {w:.3f}in, height: {h:.3f}in, "
+                       f"si-spectrum({', '.join(args)}))))")
+        return out
 
     def scheme(self, scheme: SchemePage, level: int = 2) -> str:
         # Made with the scheme editor (SPEC §13n.4): laid out by the style.

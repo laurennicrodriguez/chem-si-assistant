@@ -731,6 +731,13 @@ the defaults for all spectra:
   changed; one spectrum can have its own on its compound's spectra page);
 - **links**: each NMR report in the compound data can link to its spectrum in the PDF, and
   back.
+- **Printed with each compound's data instead of here**: tick a kind (for example
+  HPLC/SFC, for chromatograms with their integration tables) and its spectra are printed
+  under the compound's data, across the page with the white margins cut off, without a
+  figure label or structure box (a header typed for the spectrum is printed above it).
+  NMR spectra usually stay in the Spectra section. One spectrum can say otherwise:
+  **Printed** in its compound's Spectra field ("As set for its kind", "With the compound's
+  data" or "Spectra section").
 
 Under the section in the tree, each compound with spectra has its own page. There you can:
 - change the order;
@@ -982,7 +989,9 @@ In the Compile SI window you choose:
   default) or "Program drawings for every compound";
 - whether chemistry text is formatted automatically;
 - what to make: the **PDF**, or a **Word document** to edit (also **File ▸ Export to
-  Word (.docx)…**), and whether the Word document includes the spectra and HRMS reports;
+  Word (.docx)…**), whether the Word document includes the spectra and HRMS reports, and
+  where its structures go (**Structures in Word**: centred on their own line, or on the
+  left or right of the compound's title with the text wrapping around them);
 - whether to open the file when it's ready;
 - which parts to include. Untick a section to leave it out, together with its
   sub-sections and its compounds' spectra.

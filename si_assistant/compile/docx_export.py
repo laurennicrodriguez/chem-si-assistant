@@ -61,6 +61,11 @@ PAGE_TEXT_HEIGHT_IN = 9.0          # US letter with 1 in margins
 MARKER = "si-docx-block"
 STYLE_NUMBERING = {"acs": None, "rsc": "1.1", "wiley": "1.1."}   # each style's own
 FONT = "Times New Roman"
+# Where the compounds' structures go in the Word document (Compile SI window; stored as
+# "docx_structures" in project.json).
+STRUCTURE_WRAPS = {"center": "Centred on a line of their own (as in the PDF)",
+                   "left": "On the left, with the text wrapping around them",
+                   "right": "On the right, with the text wrapping around them"}
 
 
 # ---------------------------------------------------------------------- what goes in
@@ -72,6 +77,12 @@ class Heading:
     number: str = ""          # "2.", "A.", "1.1" … ("" = unnumbered)
     outlined: bool = True     # listed in the table of contents
     compound: bool = False    # a compound's title (bold, never italic)
+    float_rid: int | None = None   # its structure, beside the title with the text around it
+
+
+@dataclass
+class ClearFloat:
+    """What follows starts below a structure the text wraps around."""
 
 
 @dataclass
@@ -242,8 +253,11 @@ class HeadingNumbers:
 class DocxWriter:
     """Lists the Word items of the SI, in Builder.whole_document's order."""
 
-    def __init__(self, b: Builder, include_spectra: bool = True):
+    def __init__(self, b: Builder, include_spectra: bool = True, wrap: str = "center"):
+        """`wrap`: the compounds' structures centred on a line of their own ("center"), or
+        on the left or right of the compound's title with the text wrapping around them."""
         self.b = b
+        self.wrap = wrap
         self.project = b.project
         self.include_spectra = include_spectra
         self.items: list = []
@@ -442,8 +456,14 @@ class DocxWriter:
                                b.options.format_text, None)
         self.items.append(Heading(level, self.note_cites(block.title), "",
                                   outlined=b.toc_rank >= 4, compound=True))
+        wrapped = False
         if show_structure:
-            self.picture(b.structure_image(compound, STRUCTURE_MAX), keep_next=True)
+            code = b.structure_image(compound, STRUCTURE_MAX)
+            if code and self.wrap in ("left", "right"):
+                self.items[-1].float_rid = self.render.add(f"#{code}", "pic")
+                wrapped = True
+            else:
+                self.picture(code, keep_next=True)
         where = (f"{b.report.display_id(compound.id)} ({compound.name})" if compound.name
                  else b.report.display_id(compound.id))
         for p in b.link_paragraphs(block.paragraphs, where):
@@ -452,12 +472,20 @@ class DocxWriter:
                              numbered=False)
             else:
                 self.para(p.runs, align=p.stored_align)
+        spectra = b.inline_spectra(compound)
+        if wrapped and (spectra or block.figures):
+            self.items.append(ClearFloat())   # (pictures across the page start below it)
+            wrapped = False
+        for code in spectra:   # (e.g. HPLC traces, as in the PDF)
+            self.picture(code, kind="block")
         for index, fig in enumerate(block.figures):
             img = b.image(fig.path, (TEXT_WIDTH_IN, 4.0))
             item = b.labels.at(compound.id, index)
             if img and self.picture(img[0], keep_next=True):
                 self.caption(item.label if item else "Figure", self.formatted([Run(fig.caption)]),
                              above=False)
+        if wrapped:
+            self.items.append(ClearFloat())
 
     def scheme(self, scheme: SchemePage, level: int) -> None:
         self.picture(editor_scheme(self.b, scheme), kind="block")
@@ -831,7 +859,7 @@ class _Word:
             item = items[i]
             if isinstance(item, Picture):
                 ahead = item.kind == "landscape"
-            elif not isinstance(item, (Heading, PageBreak)):
+            elif not isinstance(item, (Heading, PageBreak, ClearFloat)):
                 ahead = False
             wide[i] = ahead
         for i, item in enumerate(items):
@@ -847,6 +875,8 @@ class _Word:
                 self.table(item)
             elif isinstance(item, PageBreak):
                 self.page_break()
+            elif isinstance(item, ClearFloat):
+                self.clear_float()
             elif isinstance(item, Contents):
                 self.contents(item)
             elif isinstance(item, References):
@@ -889,6 +919,73 @@ class _Word:
             p.paragraph_format.alignment = 3   # justify, as a title that runs over lines
             p.paragraph_format.space_before = Pt(10)
             p.paragraph_format.space_after = Pt(4)
+        if h.float_rid is not None:
+            self.floating_picture(p, h.float_rid, self.w.wrap)
+
+    MAX_FLOAT_IN = 2.5   # a structure the text wraps around, at most this wide
+
+    def floating_picture(self, paragraph, rid: int, side: str) -> None:
+        """The picture anchored to `paragraph` on the left or right of the text column, with
+        the text wrapping around it (Word: Wrap Text ▸ Square)."""
+        import copy
+        from io import BytesIO
+
+        from docx.oxml import parse_xml
+        from docx.oxml.ns import nsdecls
+        from docx.shared import Inches
+        pages = self.w.render.pages.get(rid) or []
+        if not pages:
+            return
+        data = pages[0]
+        width = min(self._picture_width(data, "pic"), self.MAX_FLOAT_IN)
+        run = paragraph.add_run()
+        run.add_picture(BytesIO(data), width=Inches(width))
+        inline = run._r.xpath(".//wp:inline")[0]
+        gap = 114300   # 0.125 in between the picture and the text
+        anchor = parse_xml(
+            f'<wp:anchor {nsdecls("wp", "a", "pic", "r")} distT="0" distB="{gap // 2}" '
+            f'distL="{gap}" distR="{gap}" simplePos="0" relativeHeight="251658240" '
+            'behindDoc="0" locked="0" layoutInCell="1" allowOverlap="0">'
+            '<wp:simplePos x="0" y="0"/>'
+            f'<wp:positionH relativeFrom="column"><wp:align>{side}</wp:align></wp:positionH>'
+            '<wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>'
+            '</wp:anchor>')
+        for tag in ("wp:extent", "wp:effectExtent"):
+            found = inline.find(tag.replace("wp:", "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"))
+            if found is not None:
+                anchor.append(copy.deepcopy(found))
+        anchor.append(parse_xml(f'<wp:wrapSquare {nsdecls("wp")} '
+                                f'wrapText="{"right" if side == "left" else "left"}"/>'))
+        for tag in ("docPr", "cNvGraphicFramePr"):
+            found = inline.find(f"{{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}}{tag}")
+            if found is not None:
+                anchor.append(copy.deepcopy(found))
+        anchor.append(copy.deepcopy(inline.find("{http://schemas.openxmlformats.org/drawingml/2006/main}graphic")))
+        inline.getparent().replace(inline, anchor)
+        # (move the picture's run to the start, so the title starts beside it)
+        paragraph._p.remove(run._r)
+        first = paragraph._p.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r")
+        if first is not None:
+            first.addprevious(run._r)
+        else:
+            paragraph._p.append(run._r)
+
+    def clear_float(self) -> None:
+        """A line break that moves what follows below a wrapped structure."""
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+        from docx.shared import Pt
+        # (in a tiny paragraph of its own: at the end of a justified paragraph it would
+        # stretch that paragraph's last line)
+        p = self.add_paragraph()
+        p.paragraph_format.space_before = p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.line_spacing = Pt(1)
+        run = p.add_run()
+        run.font.size = Pt(1)
+        br = OxmlElement("w:br")
+        br.set(qn("w:type"), "textWrapping")
+        br.set(qn("w:clear"), "all")
+        run._r.append(br)
 
     def para(self, item: Para) -> None:
         from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -1185,7 +1282,8 @@ class DocxResult:
 
 def export_docx(project: Project, options: CompileOptions, image_info, converter=None,
                 crop=None, include_spectra: bool = True,
-                dest: Path | None = None, background=None) -> DocxResult:
+                dest: Path | None = None, background=None,
+                wrap: str | None = None) -> DocxResult:
     """Write the SI as build/SI.docx (or `dest`). Raises CompileError; everything else
     is a warning (never blocks). If SI.docx is open in Word (Windows locks it), the new
     file gets a numbered name instead (SI (2).docx…)."""
@@ -1204,7 +1302,10 @@ def export_docx(project: Project, options: CompileOptions, image_info, converter
                           "yet; the ACS style was used.")
         style_file = STYLES_DIR / "acs.typ"
     shutil.copy2(style_file, b.build / "style.typ")
-    writer = DocxWriter(b, include_spectra=include_spectra)
+    if wrap is None:
+        wrap = str(project.settings.get("docx_structures", "center"))
+    writer = DocxWriter(b, include_spectra=include_spectra,
+                        wrap=wrap if wrap in STRUCTURE_WRAPS else "center")
     with leave_alone(project.dictionary_words()):
         writer.document()
         writer.cell_pictures = cell_pictures(writer)

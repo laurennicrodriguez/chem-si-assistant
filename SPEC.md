@@ -257,6 +257,8 @@ A project-wide **Warnings panel** lists all warnings and flags, grouped by secti
 
 **Sub-headings in Data sections** (Lauren, 2026-11-19): a Data section with both general procedures and compounds prints them under two sub-headings, by default "General Procedures" and "Characterization Data" (renamable per section, or switched off: `section.json` keys `gp_heading`, `compounds_heading`, `group_headings: false`).
 
+**Spectra with the compound's data** (Lauren, 2026-11-19): the Spectra section's defaults hold `inline_types` (spectrum kinds printed under each compound's data instead of in the Spectra section, e.g. HPLC/SFC); each Spectra field item has `placement` "auto" (as its kind), "inline" or "appendix". Inline spectra are cropped to their content and printed across the text width (at most 4.5 in tall), unlabelled. **Word structures** (`docx_structures` in project.json): centred (default), or floating left/right of the compound title with square text wrap.
+
 ### 9.1 Document order
 
 1. **Cover page:** "Supporting Information", manuscript title, authors, affiliations, corresponding-author email.

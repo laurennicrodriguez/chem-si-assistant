@@ -95,13 +95,15 @@
         "file": "2e_1H.pdf",
         "type": "1H",
         "title": "",
-        "struct_caption": ""
+        "struct_caption": "",
+        "placement": "auto"
       },
       {
         "file": "2e_13C.pdf",
         "type": "13C",
         "title": "",
-        "struct_caption": ""
+        "struct_caption": "",
+        "placement": "auto"
       }
     ],
     "references": {
