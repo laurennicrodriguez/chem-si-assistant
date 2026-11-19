@@ -4,13 +4,14 @@ and the chooser on a compound's Procedure field."""
 from __future__ import annotations
 
 from PySide6.QtCore import QItemSelectionModel, Qt, QTimer, Signal
-from PySide6.QtWidgets import (QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QMessageBox, QPushButton,
                                QSplitter, QVBoxLayout, QWidget)
 
 from ..core import links, procedures
 from ..core.markup import Run
-from ..core.project import DEFAULT_GP_SENTENCE, Project, ProjectError, Section
+from ..core.project import (DEFAULT_COMPOUNDS_HEADING, DEFAULT_GP_HEADING, DEFAULT_GP_SENTENCE,
+                            Project, ProjectError, Section)
 from .rich_text import RichTextEditor
 
 SAVE_DELAY_MS = 800
@@ -127,11 +128,13 @@ class GeneralProceduresEditor(QWidget):
         split.setStretchFactor(1, 3)
         split.setSizes([220, 640])
         intro = QLabel("General procedures are printed under their own headings at the start "
-                       "of this section. On a compound page, choose one in the Experimental "
+                       "of this section (with “Own headings” ticked: all of them under one "
+                       "sub-heading, and the compounds under another). On a compound page, choose one in the Experimental "
                        "procedure field instead of (or as well as) writing a procedure.")
         intro.setWordWrap(True)
         layout = QVBoxLayout(self)
         layout.addWidget(intro)
+        layout.addLayout(self._build_group_headings())
         layout.addWidget(split, 1)
 
         self._timer = QTimer(self)
@@ -139,6 +142,60 @@ class GeneralProceduresEditor(QWidget):
         self._timer.setInterval(SAVE_DELAY_MS)
         self._timer.timeout.connect(self.flush)
         self._fill_list()
+
+    # ---- the sub-headings over the procedures and over the compounds
+
+    def _build_group_headings(self) -> QHBoxLayout:
+        """“Own headings” and their two names (Project.group_headings): saved as typed."""
+        ro = self.project.read_only
+        groups = self.project.group_headings(self.section)
+        d = self.section.data
+        self.group_box = QCheckBox("Own headings:")
+        self.group_box.setToolTip(
+            "When this section has general procedures and compounds, print the procedures "
+            "under one sub-heading and the compounds under another, so they are not mixed in "
+            "the outline and table of contents. They are numbered like sub-sections.")
+        self.group_box.setChecked(groups is not None)
+        self.gp_heading = QLineEdit(str(d.get("gp_heading") or ""))
+        self.gp_heading.setPlaceholderText(DEFAULT_GP_HEADING)
+        self.compounds_heading = QLineEdit(str(d.get("compounds_heading") or ""))
+        self.compounds_heading.setPlaceholderText(DEFAULT_COMPOUNDS_HEADING)
+        for w in (self.group_box, self.gp_heading, self.compounds_heading):
+            w.setEnabled(not ro)
+        self.group_box.toggled.connect(self._save_group_headings)
+        for w in (self.gp_heading, self.compounds_heading):
+            w.editingFinished.connect(self._save_group_headings)
+        self._show_group_enabled()
+        row = QHBoxLayout()
+        row.addWidget(self.group_box)
+        row.addWidget(QLabel("procedures under"))
+        row.addWidget(self.gp_heading, 1)
+        row.addWidget(QLabel("and compounds under"))
+        row.addWidget(self.compounds_heading, 1)
+        return row
+
+    def _show_group_enabled(self) -> None:
+        on = self.group_box.isChecked() and not self.project.read_only
+        self.gp_heading.setEnabled(on)
+        self.compounds_heading.setEnabled(on)
+
+    def _save_group_headings(self, *_args) -> None:
+        self._show_group_enabled()
+        if self.project.read_only:
+            return
+        on = self.group_box.isChecked()
+        gp, compounds = self.gp_heading.text(), self.compounds_heading.text()
+        d = self.section.data
+        if (on == (d.get("group_headings") is not False)
+                and gp.strip() == str(d.get("gp_heading") or "").strip()
+                and compounds.strip() == str(d.get("compounds_heading") or "").strip()):
+            return   # (nothing changed: e.g. focus left a box without typing)
+        try:
+            self.project.set_group_headings(self.section.id, on, gp, compounds)
+        except (OSError, ProjectError) as e:
+            QMessageBox.warning(self, "Not saved", f"The headings could not be saved:\n{e}")
+            return
+        self.changed.emit()
 
     def _fill_list(self, select: str | None = None) -> None:
         self.list.blockSignals(True)

@@ -631,6 +631,13 @@ You write a general procedure (GP) once and refer to it from each compound.
      warning says so.
 5. Add any further text in the box below.
 
+**Own headings.** At the top of the **General procedures** tab, **Own headings** (on by
+default) prints the procedures under one sub-heading and the compounds under another, e.g.
+"A. General Procedures" and "B. Characterization Data" under section 5. Type other names in
+the two boxes next to it (each section has its own), or untick it to print the procedures
+straight under the section heading as before. A section without general procedures prints
+no sub-headings.
+
 Each general procedure needs its own name. Two with the same name anywhere in the project
 (capitals and spaces don't count) are marked ⚠ in the **General procedures** tab and listed
 in the Warnings panel.
@@ -974,17 +981,30 @@ In the Compile SI window you choose:
 - the structures: "ChemDraw pictures where available; program drawings otherwise" (the
   default) or "Program drawings for every compound";
 - whether chemistry text is formatted automatically;
-- whether to open the PDF when it's ready;
+- what to make: the **PDF**, or a **Word document** to edit (also **File ▸ Export to
+  Word (.docx)…**), and whether the Word document includes the spectra and HRMS reports;
+- whether to open the file when it's ready;
 - which parts to include. Untick a section to leave it out, together with its
   sub-sections and its compounds' spectra.
 
 The PDF is saved as **build/SI.pdf** in the project folder. If that file is open in a PDF
 viewer that locks it, the new one gets a numbered name instead.
 
+**Word document.** The Word document is saved as **build/SI.docx**. Its text, compound
+data, captions, tables (as Word tables) and references (formatted by the journal's
+citation style, as in the PDF) can be edited; structures, schemes, X-ray drawings,
+attachment pages, spectra and HRMS reports are pictures, drawn exactly as in the PDF. The
+headings use Word's heading styles, numbered as in the PDF, and the table of contents is a
+Word field: Word offers to update it when the file opens (or right-click it ▸ **Update
+Field**). Edits made in Word are not read back into the project, so make changes you want
+to keep in the program.
+
 The **journal style** (ACS, Wiley or RSC) is chosen in **Project Settings ▸ Output**.
 **Heading numbers**, next to it, numbers the headings: as the journal style does (none in
 ACS; 1, 1.1 for sections in Wiley and RSC), as an **outline** (sections 1, 2, 3; the next
-level A, B, C; then a, b, c), as 1, 1.1, 1.1.1, or not at all. With the outline or 1.1.1,
+level A, B, C; then a, b, c), as an outline with small Roman numerals at the third level
+(**Outline (1, A, i, a)**: 1, A, i, then a, so capital and small letters are never next
+to each other), as 1, 1.1, 1.1.1, or not at all. With the outline or 1.1.1,
 the headings you type in a section's text and the General Information heading are
 numbered too; compound titles and general procedures never are.
 Other tabs there set:

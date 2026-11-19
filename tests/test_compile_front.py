@@ -106,8 +106,11 @@ def test_heading_levels_follow_the_tree(nested):
     assert '#heading(level: 3, outlined: true)[#"Drying"]' in src
     assert '#heading(level: 2, outlined: true)[#"Products"]' in src
     # The Data section's GP and compound titles sit one level below it, unnumbered.
-    assert '#heading(level: 3, outlined: true, numbering: none)[#"General Procedure A"]' in src
-    assert '#si-compound-title(3, false)[' in src
+    # (the procedures and the compounds each under a sub-heading of the section)
+    assert '#heading(level: 3, outlined: true)[#"General Procedures"]' in src
+    assert '#heading(level: 4, outlined: true, numbering: none)[#"General Procedure A"]' in src
+    assert '#heading(level: 3, outlined: true)[#"Characterization Data"]' in src
+    assert '#si-compound-title(4, false)[' in src
     assert src.index('"Drying"') < src.index('"Products"')
 
 
@@ -118,11 +121,11 @@ def test_toc_depth_decides_what_is_listed(nested):
     assert '#heading(level: 2, outlined: false)[#"Solvents"]' in src
     assert '#heading(level: 2, outlined: false, numbering: none)[#"Typed heading"]' in src
     assert '"General Procedure A"' in src and 'numbering: none)[#"General Procedure A"]' in src
-    assert '#heading(level: 3, outlined: false, numbering: none)[#"General Procedure A"]' in src
+    assert '#heading(level: 4, outlined: false, numbering: none)[#"General Procedure A"]' in src
     front.store_toc(p.settings, {**front.DEFAULT_TOC, "depth": "compounds", "dots": False,
                                  "font_size": 9, "schemes": True, "title": "Contents"})
     src, warnings = typst(p)
-    assert '#si-compound-title(3, true)[' in src
+    assert '#si-compound-title(4, true)[' in src
     assert "#set outline.entry(fill: none)" in src
     assert "#show outline.entry: set text(size: 9pt)" in src
     assert '#outline(title: [#"Contents"], depth: none, indent: auto)' in src

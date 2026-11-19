@@ -26,6 +26,12 @@
   let formats = ("1.", "A.", "a.", "i.")
   numbering(formats.at(calc.min(k.len(), formats.len()) - 1), k.last())
 }
+// … Outline (1, A, i, a): the two lowest levels swapped.
+#let si-outline-roman-numbering(..n) = {
+  let k = n.pos()
+  let formats = ("1.", "A.", "i.", "a.")
+  numbering(formats.at(calc.min(k.len(), formats.len()) - 1), k.last())
+}
 
 // `header`/`footer`: none (this style's default: no header, page number centred) or a
 // function as for si-page-line. Page numbers are `number-prefix` + 1/i/I.

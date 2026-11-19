@@ -144,9 +144,9 @@ class ProjectSettingsDialog(QDialog):
             max(0, self.heading_numbers.findData(headings.heading_numbers(s))))
         self.heading_numbers.setToolTip(
             "How section headings are numbered. “Outline” numbers sections 1, 2, 3, the "
-            "next level A, B, C, then a, b, c — including the headings typed in a section's "
-            "text and the General Information heading. Compound titles and general "
-            "procedures are never numbered. “As the journal style does”: none in ACS; "
+            "next level A, B, C, then a, b, c (or i, ii, iii with “Outline (1, A, i, a)”) — "
+            "including the headings typed in a section's text and the General Information "
+            "heading. Compound titles and general procedures are never numbered. “As the journal style does”: none in ACS; "
             "1, 1.1 for sections in Wiley and RSC.")
         oform.addRow("Heading numbers:", self.heading_numbers)
         self.tolerance = QDoubleSpinBox()

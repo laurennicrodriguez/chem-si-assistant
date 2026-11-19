@@ -110,6 +110,21 @@ def _typst() -> str:
     return f"PDF {len(pdf):,} bytes"
 
 
+def _docx() -> str:
+    """Word export (compile/docx_export.py): python-docx and its built-in blank document
+    (a data file PyInstaller must bring along)."""
+    import io
+    import docx
+    doc = docx.Document()
+    doc.add_paragraph("Word export")
+    out = io.BytesIO()
+    doc.save(out)
+    if not out.getvalue().startswith(b"PK"):
+        raise RuntimeError("no .docx")
+    from .compile import docx_export  # noqa: F401
+    return f".docx {len(out.getvalue()):,} bytes"
+
+
 def edit_restricted_pdf(text: str, user_password: str = "") -> bytes:
     """A small two-page PDF with `text` on its first page, saved the way much NMR and
     mass-spectrometry software saves its reports: AES-256 encrypted with an empty opening
@@ -250,7 +265,7 @@ def run(report: Path, project: Path | None = None) -> int:
     """Run every check, write `report` (JSON) and return the exit code (0 = all passed)."""
     checks: list[tuple[str, Callable[[], str]]] = [
         ("files", _files), ("python", _python), ("spelling", _spelling),
-        ("rdkit", _rdkit), ("typst", _typst), ("pdf", _pdf), ("qt", _qt),
+        ("rdkit", _rdkit), ("typst", _typst), ("docx", _docx), ("pdf", _pdf), ("qt", _qt),
         ("example", _example)]
     if project is not None:
         checks.append(("compile", lambda: _compile(project)))

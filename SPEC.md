@@ -253,6 +253,10 @@ A project-wide **Warnings panel** lists all warnings and flags, grouped by secti
 
 **Compile SI** turns the project into `build/SI.pdf` (and keeps the generated Typst source so advanced users can inspect it). A **Preview** compiles a single compound or section quickly.
 
+**Word export** (agreed with Lauren 2026-11-19): the same SI can be saved as `build/SI.docx` (`compile/docx_export.py`). Text, compound data, captions, tables (native Word tables) and references (numbered and formatted by Typst's CSL output) are editable; structures, schemes, X-ray drawings, attachment pages, spectra and HRMS reports are PNG pictures drawn by Typst as in the PDF. Headings use Word heading styles with the same numbers; the TOC is a Word field updated when the file opens; page lines follow Project settings ▸ Page. Spectra and HRMS reports can be left out ("Include the spectra"). The Word file is an export only: it is never read back.
+
+**Sub-headings in Data sections** (Lauren, 2026-11-19): a Data section with both general procedures and compounds prints them under two sub-headings, by default "General Procedures" and "Characterization Data" (renamable per section, or switched off: `section.json` keys `gp_heading`, `compounds_heading`, `group_headings: false`).
+
 ### 9.1 Document order
 
 1. **Cover page:** "Supporting Information", manuscript title, authors, affiliations, corresponding-author email.

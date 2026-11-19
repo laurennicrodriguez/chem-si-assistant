@@ -85,3 +85,38 @@ def test_project_settings_box_saves_the_choice(qapp, tmp_path):
     dlg.heading_numbers.setCurrentIndex(dlg.heading_numbers.findData("style"))
     dlg.apply()
     assert "heading_numbers" not in Project.open(p.folder).settings
+
+
+@pytest.mark.parametrize("style", ["ACS", "RSC", "Wiley"])
+def test_outline_with_roman_third_level(sample, style):
+    """Outline (1, A, i, a): the third level is i, ii…, the fourth a, b… (capital and small
+    letters never next to each other)."""
+    p, _parts = sample
+    p.settings["journal_style"] = style
+    p.settings["general_information"] = {"heading": "Materials and Methods"}
+    p.write_front_text("general", "# Abbreviations\nDCM = dichloromethane.\n"
+                                  "## Solvents\nDried.\n## Reagents\nBought.")
+    headings.store_heading_numbers(p.settings, "outline_roman")
+    assert headings.typst_set_rule(p.settings) == \
+        "#set heading(numbering: si-outline-roman-numbering)"
+    lines = [line.strip() for line in "\n".join(pages_text(p)).split("\n")]
+    assert "1. Materials and Methods" in lines and "A. Abbreviations" in lines
+    assert "i. Solvents" in lines and "ii. Reagents" in lines
+
+
+@pytest.mark.parametrize("style", ["acs", "rsc", "wiley"])
+def test_outline_roman_numbering_function_by_level(style, tmp_path):
+    import typst
+    from importlib.resources import files
+    (tmp_path / "style.typ").write_text(
+        (files("si_assistant") / "styles" / f"{style}.typ").read_text(encoding="utf-8"),
+        encoding="utf-8")
+    (tmp_path / "t.typ").write_text(
+        '#import "style.typ": *\n'
+        '#si-outline-roman-numbering(2) #si-outline-roman-numbering(2, 3) '
+        '#si-outline-roman-numbering(2, 3, 4) #si-outline-roman-numbering(2, 3, 4, 2) '
+        '#si-outline-roman-numbering(2, 3, 4, 2, 5)', encoding="utf-8")
+    pdf = tmp_path / "t.pdf"
+    typst.compile(str(tmp_path / "t.typ"), output=str(pdf), root=str(tmp_path))
+    text = PdfReader(str(pdf)).pages[0].extract_text()
+    assert text.split() == ["2.", "C.", "iv.", "b.", "e."]
