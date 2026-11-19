@@ -54,6 +54,7 @@ REFERENCES_YML = "references.yml"
 TEXT_WIDTH_IN = 6.5           # US letter with 1 in margins
 STRUCTURE_MAX = (3.25, 2.6)   # inches (width, height) for structures under compound titles
 INLINE_SPECTRUM_MAX_IN = 4.5   # a spectrum printed with its compound's data, at most this tall
+INLINE_SPECTRUM_LEAST = 0.35   # …shrunk to fit on the compound's page, to no less than this
 ATTACHMENT_MAX_HEIGHT_IN = 8.0   # an Attachment section's PDF page or picture, at most
 CM_PER_IN = 2.54
 TYPST_IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".pdf"}
@@ -86,6 +87,26 @@ LINK_LOOKS = {"plain": "body",
 # columns, the cells' padding shrinks (to 3pt a side at least); only a table wider even
 # then is shrunk as a whole to fit. `cells`: for each one-column cell, (column, its
 # text, (its unbreakable pieces)). `make(widths)` makes the table.
+# The spectra printed with a compound's data (Builder.inline_spectra): `parts` are
+# functions of a size factor; all are shrunk by the same factor so they fit in the room
+# left on the page, unless that would make them smaller than `least` (then full size: they
+# move to the next page). Where the page has no fixed height (the Word export's pictures)
+# they keep their size.
+INLINE_FIT_DEFINITION = """#let si-fit-inline(total, least, parts) = context {
+  let f = 1.0
+  if page.height != auto {
+    let m = page.margin
+    if type(m) == dictionary {
+      m = m.at("bottom", default: m.at("y", default: m.at("rest", default: auto)))
+    }
+    let bottom = if m == auto { calc.min(page.width, page.height) * 2.5 / 21 } else if type(m) == relative { m.length + m.ratio * page.width } else if type(m) == ratio { m * page.width } else { m }
+    let room = page.height - bottom - here().position().y - 1.6em.to-absolute() * parts.len()
+    if room < total { f = calc.max(room / total, 0.0) }
+    if f < least { f = 1.0 }
+  }
+  for part in parts { part(f) }
+}"""
+
 TABLE_FIT_DEFINITION = """#let si-fit-table(n, cells, make) = layout(room => {
   let nat = (0pt,) * n
   let least = (0pt,) * n
@@ -1360,10 +1381,17 @@ class Builder:
             if eff["spectrum_frame"]:
                 args.append(f"frame: {eff['spectrum_frame_width']:g}pt + "
                             f"rgb({typst_string(eff['spectrum_frame_color'])})")
-            out.append(f"#block(width: 100%, breakable: false, above: 0.8em, below: 0.8em, "
-                       f"align(center, box(width: {w:.3f}in, height: {h:.3f}in, "
-                       f"si-spectrum({', '.join(args)}))))")
-        return out
+            out.append((h, f"f => block(width: 100%, breakable: false, above: 0.8em, "
+                           f"below: 0.8em, align(center, box(width: {w:.3f}in * f, "
+                           f"height: {h:.3f}in * f, si-spectrum({', '.join(args)}))))"))
+        if not out:
+            return []
+        # Shrunk together to fit under the compound's data on its page, down to
+        # INLINE_SPECTRUM_LEAST of their size; any smaller and they go to the next page at
+        # full size (si-fit-inline).
+        total = sum(h for h, _code in out)
+        return [f"#si-fit-inline({total:.3f}in, {INLINE_SPECTRUM_LEAST:g}, "
+                f"({''.join(code + ', ' for _h, code in out)}))"]
 
     def scheme(self, scheme: SchemePage, level: int = 2) -> str:
         # Made with the scheme editor (SPEC §13n.4): laid out by the style.
@@ -1848,7 +1876,7 @@ class Builder:
                  f"#show: si-doc.with(title: {typst_string(str(p.settings.get('title') or ''))}, "
                  f"{self.page_args()})",
                  headings.typst_set_rule(p.settings),   # (Project settings ▸ Heading numbers)
-                 TABLE_FIT_DEFINITION]
+                 TABLE_FIT_DEFINITION, INLINE_FIT_DEFINITION]
         if self.nmr_links:
             parts.append(link_definition(self.link_style))
         if self.options.only is None:
