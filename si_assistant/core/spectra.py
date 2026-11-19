@@ -81,8 +81,14 @@ DEFAULTS: dict[str, Any] = {
     # reports" at the end of this section. Each compound can say otherwise (compound.json
     # hrms.print_reports, core/ms_reports.prints_reports).
     "hrms_reports": False,
+    # Kinds of spectra (F.SPECTRUM_TYPES) printed with the compound's data, under its text,
+    # instead of here (e.g. HPLC/SFC traces with their integration tables). Each spectrum
+    # can say otherwise (its "placement" in the Spectra field: SPECTRUM_PLACEMENTS).
+    "inline_types": [],                # (never changed in place: copied by section_defaults)
 }
-SECTION_ONLY_KEYS = ("nmr_links", "link_style", "link_back", "hrms_reports")
+SECTION_ONLY_KEYS = ("nmr_links", "link_style", "link_back", "hrms_reports", "inline_types")
+# Where one spectrum of the Spectra field is printed ("placement"; missing = "auto").
+SPECTRUM_PLACEMENTS = F.SPECTRUM_PLACEMENTS
 LINK_STYLES = {"plain": "Like normal text", "blue": "Blue",
                "blue_underline": "Blue and underlined"}
 POSITION_KEYS = ("x", "y")            # a dragged box (page overrides only)
@@ -117,6 +123,10 @@ def _clean_value(key: str, value: Any) -> Any:
             return value if value in CORNERS else None
         if key == "link_style":
             return value if value in LINK_STYLES else None
+        if key == "inline_types":
+            if not isinstance(value, (list, tuple)):
+                return None
+            return [t for t in F.SPECTRUM_TYPES if t in value]
         if isinstance(default, bool):
             return value if isinstance(value, bool) else None
         if key.endswith("_color") or key == "struct_bg":
@@ -166,6 +176,7 @@ def section_defaults(section, settings: dict | None = None) -> dict[str, Any]:
         out.update(legacy_defaults(settings or {}))
     else:
         out.update(clean(section.data.get("defaults")))
+    out["inline_types"] = list(out.get("inline_types") or ())
     return out
 
 
@@ -217,14 +228,37 @@ def list_value(compound, key: str) -> list:
     return value if isinstance(value, list) else []
 
 
+def placement(project, item: dict) -> str:
+    """Where a spectrum of the Spectra field is printed: "inline" (with the compound's
+    data) or "appendix" (the Spectra section): its own choice, or else as the Spectra
+    section's page sets for its kind."""
+    own = item.get("placement")
+    if own in ("inline", "appendix"):
+        return own
+    kinds = project.spectra_defaults().get("inline_types") or ()
+    return "inline" if str(item.get("type", "")) in kinds else "appendix"
+
+
+def inline_items(project, compound) -> list[dict]:
+    """The compound's spectra printed with its data, by kind (¹H, ¹³C, …, HPLC/SFC, IR)."""
+    if "spectra" not in compound.field_keys:
+        return []
+    order = {t: i for i, t in enumerate(F.SPECTRUM_TYPES)}
+    items = [i for i in list_value(compound, "spectra")
+             if isinstance(i, dict) and placement(project, i) == "inline"]
+    return sorted(items, key=lambda i: order.get(i.get("type", ""), len(order)))
+
+
 def spectrum_items(project, compound, automatic: bool = False) -> list[tuple[str, dict]]:
     """(field key, item) of everything printed in the Spectra section for a compound, in
     order: the order set by hand if there is one (files not in it follow), or else the
     Spectra field by type, then files placed in the Spectra section. `automatic`: always
-    the automatic order."""
+    the automatic order. Spectra printed with the compound's data (placement) are not
+    among them."""
     order = {t: i for i, t in enumerate(F.SPECTRUM_TYPES)}
     items = [("spectra", item) for item in list_value(compound, "spectra")
-             if "spectra" in compound.field_keys and isinstance(item, dict)]
+             if "spectra" in compound.field_keys and isinstance(item, dict)
+             and placement(project, item) == "appendix"]
     items.sort(key=lambda t: order.get(t[1].get("type", ""), len(order)))
     for defn in project.field_defs(compound):
         if defn.kind == "attachments" and defn.key != "spectra":
@@ -390,12 +424,15 @@ def svg_readable(path: Path) -> bool:
 
 
 def spectra_of(project, compound, page_count=pdf_page_count, problems: list | None = None,
-               keep_unreadable: bool = False) -> list[Spectrum]:
+               keep_unreadable: bool = False, inline: bool = False) -> list[Spectrum]:
     """Every spectrum page of a compound, in print order. A PDF that can't be read is
     skipped (with a note in `problems`), or with `keep_unreadable` kept as one entry
-    whose `problem` says so; a missing file is kept (the caller reports it)."""
+    whose `problem` says so; a missing file is kept (the caller reports it). `inline`:
+    the spectra printed with the compound's data instead (inline_items)."""
     out = []
-    for key, item in spectrum_items(project, compound):
+    items = ([("spectra", i) for i in inline_items(project, compound)] if inline
+             else spectrum_items(project, compound))
+    for key, item in items:
         name = F.part_text(item.get("file"))   # (a hand-edited file name may be a number)
         if not name:
             continue

@@ -322,6 +322,33 @@ class SpectraSectionPanel(SectionPanel):
                            "spectrum, or when the Spectra section is not printed. Links work in "
                            "PDF readers; on paper they look as chosen above."))
 
+        # ---- which kinds are printed with the compound's data instead of here
+        from ..core import fields as F
+        self.inline_checks: dict[str, QCheckBox] = {}
+        inline_box = QGroupBox("Printed with each compound's data instead of here")
+        iform = QVBoxLayout(inline_box)
+        grid = QHBoxLayout()
+        columns = [QVBoxLayout() for _ in range(3)]
+        for n, kind in enumerate(F.SPECTRUM_TYPES):
+            check = QCheckBox(F.SPECTRUM_TYPE_LABELS.get(kind, kind))
+            check.setChecked(kind in (v.get("inline_types") or ()))
+            check.setToolTip(f"Print every {check.text()} spectrum under its compound's "
+                             "data (characterization text), across the page, instead of in "
+                             "this section")
+            self.inline_checks[kind] = check
+            columns[n % 3].addWidget(check)
+        for col in columns:
+            col.addStretch()
+            grid.addLayout(col)
+        grid.addStretch()
+        iform.addLayout(grid)
+        iform.addWidget(_hint("Ticked kinds (for example HPLC/SFC traces with their integration "
+                              "tables) are printed under the compound's data, across the "
+                              "page with their white margins cut off, without a figure label "
+                              "or structure box; a header typed for the spectrum is printed "
+                              "above it. Each spectrum can say otherwise: “Printed” in the "
+                              "compound's Spectra field."))
+
         # ---- HRMS report files (SPEC §13n.3)
         self.hrms_reports = QCheckBox("Print HRMS reports")
         self.hrms_reports.setChecked(v["hrms_reports"])
@@ -363,6 +390,7 @@ class SpectraSectionPanel(SectionPanel):
         column = QVBoxLayout()
         column.addLayout(top)
         column.addWidget(label_box)
+        column.addWidget(inline_box)
         column.addWidget(links_box)
         column.addWidget(hrms_box)
         apply_row = QHBoxLayout()
@@ -390,7 +418,8 @@ class SpectraSectionPanel(SectionPanel):
             box.currentIndexChanged.connect(self._changed)
         for check in (self.header_line, self.spectrum_frame, self.auto_crop, self.same_size,
                       self.id_bold, self.struct_frame, self.caption, self.struct_box,
-                      self.nmr_links, self.link_back, self.hrms_reports):
+                      self.nmr_links, self.link_back, self.hrms_reports,
+                      *self.inline_checks.values()):
             check.toggled.connect(self._changed)
         for spin in (self.scale, self.id_size, self.spectrum_width, self.struct_width,
                      self.caption_size):
@@ -403,7 +432,7 @@ class SpectraSectionPanel(SectionPanel):
                   self.scale, self.same_size, self.id_size, self.id_bold, self.struct_frame,
                   self.struct_colour, self.struct_width, self.background, self.caption,
                   self.caption_size, self.apply_btn, self.nmr_links, self.link_style, self.link_back,
-                  self.hrms_reports):
+                  self.hrms_reports, *self.inline_checks.values()):
             w.setEnabled(not ro)
         self._loading = False
         self._update_enabled()
@@ -457,6 +486,7 @@ class SpectraSectionPanel(SectionPanel):
             "link_style": self.link_style.currentData(),
             "link_back": self.link_back.isChecked(),
             "hrms_reports": self.hrms_reports.isChecked(),
+            "inline_types": [k for k, c in self.inline_checks.items() if c.isChecked()],
         }
 
     def _update_enabled(self) -> None:

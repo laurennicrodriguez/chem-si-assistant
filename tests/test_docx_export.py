@@ -107,3 +107,46 @@ def test_compile_window_offers_word(sample):
     assert again.as_word.isChecked() and not again.word_spectra.isChecked()
     again.as_pdf.setChecked(True)
     assert not again.word_spectra.isEnabled() and again.windowTitle() == "Compile SI"
+
+
+def test_structures_beside_the_text_in_word(sample):
+    p, parts = sample
+    p.settings["docx_structures"] = "left"
+    doc = Document(str(export(p).path))
+    body = doc.element.body.xml
+    assert "<wp:anchor" in body and '<wp:align>left</wp:align>' in body
+    assert 'wrapText="right"' in body and 'w:clear="all"' in body
+    title = next(par for par in doc.paragraphs if par.text.startswith("N-Benzyl-N-methyl"))
+    assert title._p.xpath(".//wp:anchor")   # (anchored to the compound's title)
+    doc = Document(str(export(p, wrap="center").path))
+    assert "<wp:anchor" not in doc.element.body.xml
+
+
+def test_spectra_printed_with_the_compound(sample):
+    """Spectrum kinds ticked on the Spectra section's page (or one spectrum's own
+    "Printed" choice) go under the compound's data instead of the Spectra section."""
+    from si_assistant.core import spectra as S
+    p, parts = sample
+    c2 = parts["c2"]
+    kinds = {i["type"] for i in c2.values["spectra"]}
+    assert "13C" in kinds and len(S.spectrum_items(p, c2)) == len(c2.values["spectra"])
+    d = p.spectra_defaults()
+    d["inline_types"] = ["13C", "nonsense"]
+    p.set_spectra_defaults(d)
+    assert p.spectra_defaults()["inline_types"] == ["13C"]
+    assert all(i["type"] != "13C" for _k, i in S.spectrum_items(p, c2))
+    assert [i["type"] for i in S.inline_items(p, c2)] == ["13C"]
+    # the PDF: the ¹³C spectrum is drawn in the compound's block, not on a spectra page
+    from si_assistant.compile.document import Builder, CompileOptions
+    b = Builder(p, CompileOptions.from_settings(p.settings), image_info)
+    b.assets.mkdir(parents=True, exist_ok=True)
+    block = b.compound(c2)
+    assert "si-spectrum(" in block and "13C" in block
+    # one spectrum says otherwise
+    for item in c2.values["spectra"]:
+        if item["type"] == "13C":
+            item["placement"] = "appendix"
+        elif item["type"] == "1H":
+            item["placement"] = "inline"
+    assert [i["type"] for i in S.inline_items(p, c2)] == ["1H"]
+    assert any(i["type"] == "13C" for _k, i in S.spectrum_items(p, c2))

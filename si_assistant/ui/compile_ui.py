@@ -192,6 +192,17 @@ class CompileDialog(QDialog):
         self.word_spectra.setChecked(bool(project.settings.get("docx_spectra", True)))
         self.word_spectra.setEnabled(self.as_word.isChecked())
         self.as_word.toggled.connect(self.word_spectra.setEnabled)
+        from ..compile.docx_export import STRUCTURE_WRAPS
+        self.word_wrap = QComboBox()
+        for key, text in STRUCTURE_WRAPS.items():
+            self.word_wrap.addItem(text, key)
+        self.word_wrap.setCurrentIndex(max(0, self.word_wrap.findData(
+            project.settings.get("docx_structures", "center"))))
+        self.word_wrap.setToolTip("Where each compound's structure goes in the Word document. "
+                                  "Beside the text, it sits next to the compound's title and "
+                                  "the text flows around it (Word's “Square” wrapping).")
+        self.word_wrap.setEnabled(self.as_word.isChecked())
+        self.as_word.toggled.connect(self.word_wrap.setEnabled)
         self.as_word.toggled.connect(
             lambda on: self.setWindowTitle("Export to Word" if on else "Compile SI"))
         if word:
@@ -199,8 +210,13 @@ class CompileDialog(QDialog):
 
         form = QFormLayout()
         outputs = QVBoxLayout()
+        wrap_row = QHBoxLayout()
+        wrap_row.setContentsMargins(20, 0, 0, 0)
+        wrap_row.addWidget(QLabel("Structures in Word:"))
+        wrap_row.addWidget(self.word_wrap, 1)
         for w in (self.as_pdf, self.as_word, self.word_spectra):
             outputs.addWidget(w)
+        outputs.addLayout(wrap_row)
         self.word_spectra.setContentsMargins(20, 0, 0, 0)
         out_holder = QWidget()
         out_holder.setLayout(outputs)
@@ -244,7 +260,8 @@ class CompileDialog(QDialog):
         self.project.settings.update({
             "compile_structures": o.structures, "format_text": o.format_text,
             "compile_output": "docx" if self.as_word.isChecked() else "pdf",
-            "docx_spectra": self.word_spectra.isChecked()})
+            "docx_spectra": self.word_spectra.isChecked(),
+            "docx_structures": self.word_wrap.currentData()})
         front.store_excluded(self.project.settings, o.excluded)
         if not self.project.read_only:
             self.project.save_settings()

@@ -101,19 +101,22 @@
         "file": "2c_1H.pdf",
         "type": "1H",
         "title": "",
-        "struct_caption": ""
+        "struct_caption": "",
+        "placement": "auto"
       },
       {
         "file": "2c_13C.pdf",
         "type": "13C",
         "title": "",
-        "struct_caption": ""
+        "struct_caption": "",
+        "placement": "auto"
       },
       {
         "file": "2c_19F.pdf",
         "type": "19F",
         "title": "2c — 19F{1H} NMR (376 MHz, CDCl3)",
-        "struct_caption": ""
+        "struct_caption": "",
+        "placement": "auto"
       }
     ],
     "references": {

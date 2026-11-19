@@ -24,6 +24,7 @@
     "nmr_links": true,
     "link_style": "plain",
     "link_back": true,
-    "hrms_reports": false
+    "hrms_reports": false,
+    "inline_types": []
   }
 }

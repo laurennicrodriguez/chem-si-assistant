@@ -46,6 +46,9 @@ SPECTRUM_TYPE_LABELS = {"1H": "¹H NMR", "13C": "¹³C NMR", "19F": "¹⁹F NMR"
 # The stored value "appendix" is kept for older projects; it is shown as "Spectra section".
 PLACEMENTS = {"inline": "Inline with compound", "appendix": "Spectra section",
               "exclude": "Don't include in SI"}
+# Where one spectrum is printed (core/spectra.placement).
+SPECTRUM_PLACEMENTS = {"auto": "As set for its kind", "inline": "With the compound's data",
+                       "appendix": "Spectra section"}
 PHYSICAL_STATES = ("colorless oil", "pale yellow oil", "yellow oil", "white solid",
                    "off-white solid", "pale yellow solid", "yellow solid", "orange solid",
                    "red solid", "brown solid", "colorless crystals")
@@ -191,8 +194,13 @@ CORE_FIELDS: tuple[FieldDef, ...] = (
                          # SPEC §13k.12.9: printed under the structure when the Spectra
                          # section's "caption" is on (core/spectra.CAPTION_KEY).
                          Part("struct_caption", "Caption under the structure (empty = automatic)",
-                              placeholder="automatic, e.g. 1H NMR (CDCl3, 400 MHz)")),
-             description="PDFs or images; placed in the spectra section"),
+                              placeholder="automatic, e.g. 1H NMR (CDCl3, 400 MHz)"),
+                         # Where it is printed (core/spectra.placement): "auto" = as the
+                         # Spectra section's page sets for its kind.
+                         Part("placement", "Printed", "choice", tuple(SPECTRUM_PLACEMENTS),
+                              default="auto", choice_labels=SPECTRUM_PLACEMENTS)),
+             description="PDFs or images; placed in the spectra section, or with the "
+                         "compound's data (set by kind on the Spectra section's page)"),
     FieldDef("files", "Additional files", "attachments", subdir="files",
              item_parts=(Part("caption", "Caption"),
                          Part("placement", "Placement", "choice", tuple(PLACEMENTS),
