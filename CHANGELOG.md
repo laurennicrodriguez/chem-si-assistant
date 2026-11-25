@@ -6,6 +6,17 @@ program's update check shows.)
 
 ## [Unreleased]
 
+- **Import compounds from Excel.** **File ▸ Import Compounds from Excel…** makes compound
+  pages from a spreadsheet (Excel or CSV) with one row per compound. A window lists each
+  column with what it will be read as (guessed from its header, remembered for next time,
+  and changeable) and its first values; then the usual import window shows every compound
+  as read, to check before anything is made. Cells are read as Excel shows them ("0.50",
+  "94%"), structures come from a SMILES column, and NMR cells that start at δ get their
+  "¹H NMR (500 MHz, CDCl₃)" from the frequency and solvent columns. Built for real lab
+  trackers: it reads one Excel table at a time from a sheet that holds several, numbers
+  rows that have no ID (from e.g. 3a), keeps the product pictures placed in the cells as
+  the structures' pictures, reads ee fractions (0.96) as 96% ee and HPLC retention times
+  "(maj)/(min)", and skips planned rows whose formulas give #DIV/0!.
 - **Spectra with the compound's data.** On the Spectra section's page, tick the kinds of
   spectra (e.g. HPLC/SFC) to print under each compound's data instead of in the Spectra
   section: across the page, white margins cut off, no figure label, and shrunk together

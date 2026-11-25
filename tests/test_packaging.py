@@ -307,7 +307,7 @@ def test_self_test_writes_a_report(monkeypatch, tmp_path):
     code = selftest.run(report)
     data = json.loads(report.read_text(encoding="utf-8"))
     # ("pdf": edit-restricted PDFs open; "example": the shipped example project opens.)
-    assert set(data["checks"]) == {"files", "python", "spelling", "rdkit", "typst", "docx", "pdf",
+    assert set(data["checks"]) == {"files", "python", "spelling", "rdkit", "typst", "docx", "xlsx", "pdf",
                                    "qt", "example"}
     for name in ("files", "python", "spelling", "rdkit", "typst", "pdf", "example"):
         assert data["checks"][name]["ok"], data["checks"][name]

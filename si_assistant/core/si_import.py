@@ -47,6 +47,7 @@ class ImportedCompound:
     procedure: str = ""         # its experimental procedure (markup)
     values: dict = field(default_factory=dict)   # field key -> value, as compound.json
     unrecognised: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)   # meant for its private Notes (not a warning)
     original: str = ""          # its whole text as printed (markup), heading excluded
     page: int = 0
     gp_key: str = ""            # the general procedure it cites ("" if none)
@@ -67,6 +68,7 @@ class ImportedCompound:
     # text's top; pt), and the picture of its structure cut out of the page (a PDF).
     geometry: tuple | None = None
     picture_pdf: bytes | None = None
+    picture_ext: str = ".pdf"   # (picture_pdf can be a PNG/JPEG from a spreadsheet cell)
     end: tuple = (0, 0.0)       # PDF: (page, bottom in pt) where its text ends
 
 

@@ -125,6 +125,25 @@ def _docx() -> str:
     return f".docx {len(out.getvalue()):,} bytes"
 
 
+def _xlsx() -> str:
+    """Import Compounds from Excel (core/si_import_table.py): openpyxl writes and reads back
+    a small workbook."""
+    import tempfile
+    from pathlib import Path
+    import openpyxl
+    from .core import si_import_table
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "check.xlsx"
+        wb = openpyxl.Workbook()
+        wb.active.append(["ID", "Yield"])
+        wb.active.append(["1a", 0.5])
+        wb.save(path)
+        read = si_import_table.read_table(path)
+    if read.error or read.sheets[0].rows[1] != ["1a", "0.5"]:
+        raise RuntimeError(read.error or f"read {read.sheets[0].rows!r}")
+    return f"openpyxl {openpyxl.__version__}"
+
+
 def edit_restricted_pdf(text: str, user_password: str = "") -> bytes:
     """A small two-page PDF with `text` on its first page, saved the way much NMR and
     mass-spectrometry software saves its reports: AES-256 encrypted with an empty opening
@@ -265,7 +284,7 @@ def run(report: Path, project: Path | None = None) -> int:
     """Run every check, write `report` (JSON) and return the exit code (0 = all passed)."""
     checks: list[tuple[str, Callable[[], str]]] = [
         ("files", _files), ("python", _python), ("spelling", _spelling),
-        ("rdkit", _rdkit), ("typst", _typst), ("docx", _docx), ("pdf", _pdf), ("qt", _qt),
+        ("rdkit", _rdkit), ("typst", _typst), ("docx", _docx), ("xlsx", _xlsx), ("pdf", _pdf), ("qt", _qt),
         ("example", _example)]
     if project is not None:
         checks.append(("compile", lambda: _compile(project)))

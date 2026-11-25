@@ -260,6 +260,11 @@ class _CompoundPage(QScrollArea):
             c, "unrecognised", [t for t in self.unrecognised.toPlainText().split("\n")
                                 if t.strip()]))
         form.addRow("Not recognised\n(→ Notes):", self.unrecognised)
+        if c.notes:
+            notes = _plain_edit("\n".join(c.notes), height=50)
+            notes.textChanged.connect(lambda: setattr(
+                c, "notes", [t for t in notes.toPlainText().split("\n") if t.strip()]))
+            form.addRow("Notes\n(private):", notes)
         mine = [s for s in spectra if s.cid == c.cid]
         if mine:
             box = QWidget()
@@ -291,6 +296,11 @@ class _CompoundPage(QScrollArea):
                 pixmap = QPixmap()
                 pixmap.loadFromData(chem.structure_png(mol, 260, 160))
                 formula = chem.mol_info(mol).formula
+            elif c.picture_ext != ".pdf":         # a picture from a spreadsheet cell
+                pixmap = QPixmap()
+                pixmap.loadFromData(c.picture_pdf)
+                pixmap = pixmap.scaled(260, 160, Qt.AspectRatioMode.KeepAspectRatio,
+                                       Qt.TransformationMode.SmoothTransformation)
             else:                                # a picture cut out of a PDF
                 pixmap = QPixmap.fromImage(_pdf_image(c.picture_pdf)).scaled(
                     260, 160, Qt.AspectRatioMode.KeepAspectRatio,
