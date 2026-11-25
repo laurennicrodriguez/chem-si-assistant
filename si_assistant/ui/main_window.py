@@ -626,6 +626,11 @@ class MainWindow(QMainWindow):
         self.act_import_si = act("&Import SI…", self.import_si,
                                  tip="Read an SI you already have (Word or PDF) into a new "
                                      "project or the open one; you check everything first")
+        self.act_import_table = act("Import Compounds from &Excel…",
+                                    lambda: self.import_si(table=True),
+                                    tip="Make compound pages from a spreadsheet (Excel or CSV) "
+                                        "with one row per compound; you say what each column "
+                                        "holds and check everything first")
         self.act_xray = act("&X-ray Structure Viewer…", self.xray_viewer,
                             tip="See a crystal structure (CIF file) as ORTEP ellipsoids or "
                                 "ball-and-stick, turn it, and save or copy the picture")
@@ -707,6 +712,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction(self.act_close_project)
         file_menu.addSeparator()
         file_menu.addAction(self.act_import_si)
+        file_menu.addAction(self.act_import_table)
         file_menu.addAction(self.act_xray)
         file_menu.addSeparator()
         file_menu.addAction(self.act_export_word)
@@ -1132,26 +1138,47 @@ class MainWindow(QMainWindow):
         viewer.raise_()
         viewer.activateWindow()
 
-    def import_si(self) -> None:
+    def import_si(self, table: bool = False) -> None:
         """File ▸ Import SI… (SPEC §13u): read a Word or PDF SI, show the review window, then
-        write what was kept into a new project or the open one (one undo step)."""
-        from ..core import si_import_apply
-        from . import si_import_ui
+        write what was kept into a new project or the open one (one undo step).
+        `table` (File ▸ Import Compounds from Excel…, §13y): a spreadsheet with one row per
+        compound, whose columns are chosen first; Import SI takes one too."""
+        from ..core import si_import_apply, si_import_read, si_import_table
+        from . import si_import_table_ui, si_import_ui
         start = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.DocumentsLocation) or str(Path.home())
+        sheets = "Spreadsheets (*.xlsx *.xlsm *.csv *.tsv)"
+        filters = (f"{sheets};;All files (*)" if table else
+                   "SI files (*.docx *.pdf *.xlsx *.xlsm *.csv);;Word documents (*.docx);;"
+                   f"PDF files (*.pdf);;{sheets}")
         path, _ = QFileDialog.getOpenFileName(
-            self, "Import an SI", start, "SI files (*.docx *.pdf);;Word documents (*.docx);;"
-                                         "PDF files (*.pdf)")
+            self, "Import compounds from a spreadsheet" if table else "Import an SI", start,
+            filters)
         if not path:
             return
         source = Path(path)
-        read = si_import_ui.read_with_progress(self, source)
-        if read is None:
-            return
-        if read.error:
-            QMessageBox.warning(self, "Could not read the SI", read.error)
-            return
-        plan = si_import_ui.analyse(read)
+        if source.suffix.lower() in si_import_table.TABLE_SUFFIXES + (".xls",):
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            try:
+                sheet_read = si_import_table.read_table(source)
+            finally:
+                QApplication.restoreOverrideCursor()
+            if sheet_read.error:
+                QMessageBox.warning(self, "Could not read the spreadsheet", sheet_read.error)
+                return
+            columns = si_import_table_ui.ColumnsDialog(sheet_read, self)
+            if columns.exec() != QDialog.DialogCode.Accepted:
+                return
+            plan = columns.plan()
+            read = si_import_read.ReadResult(source.name, "table", path=str(source))
+        else:
+            read = si_import_ui.read_with_progress(self, source)
+            if read is None:
+                return
+            if read.error:
+                QMessageBox.warning(self, "Could not read the SI", read.error)
+                return
+            plan = si_import_ui.analyse(read)
         usable = self.project is not None and not self.project.read_only
         dialog = si_import_ui.ImportDialog(plan, read, self.project if usable else None, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:

@@ -177,6 +177,40 @@ The file itself is only read, never changed.
   project already has (same DOI) are not added twice.
 - From a PDF, page numbers and running heads are left out.
 
+**From a spreadsheet.** If your data are in an Excel table (one row per compound, a header
+over each column), use **File ▸ Import Compounds from Excel…** (Import SI… takes a
+spreadsheet too; Excel .xlsx or CSV; save an old .xls as .xlsx first). A window lists
+every column of the sheet with its header, what it will be read as, and its first values.
+**Read from** chooses the sheet, or one of its Excel tables (Insert ▸ Table): a sheet with
+several tables side by side or one under another is read one table at a time (the window
+picks the one that looks most like a compound table, and remembers your choice for the
+file).
+The choices are guessed from the headers ("Compound", "SMILES", "Yield", "1H NMR", "HRMS
+found", "Rf", "ee"…) and remembered for the next file with the same headers; change any
+that are wrong, and set columns you don't want to **not imported**. If your headers are not
+in the first row (a title above them), set **Headers in row**. Then:
+- cells are read as Excel shows them: "0.50", and a percentage cell as "94";
+- a **SMILES** column gives each compound its structure (with formula and masses);
+- an NMR column may hold the whole report or just the shifts ("δ 7.49 (m, 2H), …"): then
+  "¹H NMR (500 MHz, CDCl₃)" is made from the **NMR solvent** and **¹H NMR frequency**
+  columns (the ¹³C and ¹⁹F frequencies follow from the ¹H one);
+- HRMS can be one sentence, or separate found / ion / ionization columns (no ion column:
+  [M+H]⁺ is assumed, with a warning); a calcd column is not needed, the program calculates it;
+- a column with whole characterization paragraphs is sorted into the fields, as for a
+  Word SI; a **Notes** column goes to each compound's private Notes (several columns can:
+  notebook IDs, reagents, comments);
+- **no ID column?** Type the first ID in **Rows without an ID: number them from** (e.g.
+  3a): every row with data gets the next ID (3a, 3b … 3z, 3aa), in the sheet's order;
+  empty rows and rows whose formulas failed (#DIV/0!) are skipped;
+- a **Picture** column with the product drawn in each cell (Excel's Place in Cell, or a
+  picture over the cell) becomes the compound's structure picture, until you paste the
+  structure from ChemDraw (which gives the formula, masses and a sharp drawing);
+- fractions are read as percentages (an ee of 0.96 is 96% ee), computed yields are
+  rounded (73.947… → 74), a 0 yield or ee (a formula with nothing to work on yet) is left
+  out, HPLC retention times such as "4.104 (maj), 4.434 (min)" go to tR major and minor,
+  and the wavelength written in the HPLC conditions ("…, 220nm") goes to its own box.
+**Next** opens the window described below, with every compound as read.
+
 **Check it first.** A window shows everything that was found: the general procedures and
 the compounds on the left, and for the one you select, every value in a box you can
 change, next to the text as printed, the structure that was found (untick **Import

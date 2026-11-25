@@ -447,7 +447,7 @@ def _set_structure(project, comp, c: ImportedCompound, picture_for) -> bool:
         # HRMS, is the typed one).
         if not isinstance(comp.values.get("structure"), dict):
             comp.values["structure"] = {}
-        project.set_structure_image(comp, data=c.picture_pdf, ext=".pdf")
+        project.set_structure_image(comp, data=c.picture_pdf, ext=c.picture_ext)
         return True
     if not (c.structure and c.use_structure):
         return False
@@ -534,8 +534,9 @@ def _merge(project, comp, c: ImportedCompound, gp_ids: dict[str, str], mode: str
 
 
 def _write_notes(project, comp, c: ImportedCompound, source_name: str) -> None:
-    if not c.unrecognised:
+    lines = list(c.notes) + list(c.unrecognised)     # (notes: a spreadsheet's Notes column)
+    if not lines:
         return
     old = project.read_compound_text(comp, "notes").rstrip()
-    text = NOTES_HEADING.format(file=source_name) + "\n" + "\n".join(c.unrecognised)
+    text = NOTES_HEADING.format(file=source_name) + "\n" + "\n".join(lines)
     project.write_compound_text(comp, "notes", (old + "\n\n" + text) if old else text)

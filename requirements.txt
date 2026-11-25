@@ -13,6 +13,8 @@ cryptography>=42,<51  # lets pypdf open PDFs saved with edit restrictions (many 
 pyspellchecker>=0.8   # spelling check, English dictionary included (works offline) — MIT
 python-docx>=1.1,<2  # Word export (build/SI.docx) — MIT (brings lxml, BSD-3-Clause, and
                       # typing_extensions, PSF-2.0)
+openpyxl>=3.1,<4    # reading Excel workbooks (Import Compounds from Excel) — MIT (brings
+                      # et_xmlfile, MIT)
 numpy>=1.26           # (also installed with RDKit) scheme labels, trimming pictures — BSD-3-Clause
 # Development
 pytest>=8             # unit tests — MIT

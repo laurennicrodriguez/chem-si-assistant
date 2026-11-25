@@ -1265,6 +1265,64 @@ Nathan asked for the program to look like his other program, Chem Illustrator (n
 3. *As built:* `core/chem_names.py` (`italic_spans`, `name_runs`); `compile/blocks.py`
    `compound_title`. Tests: `tests/test_chem_names.py`.
 
+## 13y. Import compounds from a spreadsheet (Lauren, 2026-11-25)
+
+1. **File ▸ Import Compounds from Excel…** (and Import SI… with a spreadsheet chosen) reads an
+   Excel workbook (.xlsx/.xlsm) or a CSV/TSV file with **one row per compound** and makes
+   compound pages from it. An older .xls is refused with how to save it as .xlsx.
+2. **Columns window** (`ui/si_import_table_ui.py`): the sheet (the first with a likely ID
+   column), the header row (the first row with two or more mostly-text cells, so a title
+   row above the headers is skipped; changeable), and for each column its header, a
+   **Read as** choice and its first three values. The choice is guessed from the header
+   (`guess_role`, a list of patterns, each role given once) or, for a header seen before,
+   as chosen last time (QSettings `table_import/roles`). Roles: ID, name, SMILES, procedure,
+   a whole characterization paragraph (read like an imported SI's data), physical state,
+   yield %, mass, scale, each NMR nucleus, NMR solvent and frequencies, HRMS (whole
+   sentence, or found / calcd / ion / ionization / formula), Rf (+ eluent), mp, IR,
+   [α]D, ee/er (+ method, column, eluent, flow, wavelength, tR major/minor), d.r.,
+   elemental analysis, CCDC, purification eluent, notes, or not imported. Next is enabled
+   once an ID or name column is chosen and a row has one.
+3. **Cells as Excel shows them** (`core/si_import_table.py`): numbers with their format's
+   decimals ("0.50"), percentages ×100 ("94"), merged cells give every cell their value,
+   formatted text keeps sub/superscripts, italics and bold (procedure). Each cell is sorted
+   with Import SI's readers (§13u), so a bare value ("0.23", "94", "1.25 g") and a labelled
+   one ("Rf = 0.23 (4:1 hexanes/EtOAc)", "57.4 mg (94%)") both work. An NMR cell starting
+   at δ gets "¹H NMR (500 MHz, CDCl₃)" from the frequency and solvent columns (¹³C/¹⁹F/³¹P/
+   ¹¹B frequencies follow from the ¹H one when not given), with a warning when either is
+   missing. A found m/z without an ion column assumes [M+H]⁺ (ESI) with a warning. A SMILES
+   that can't be read gives a warning and no structure. A typed calcd m/z is not stored.
+   Notes columns go to the compound's private Notes (not a warning); cells that can't be
+   sorted go there too, marked as not recognised.
+4. **Sources, pictures, IDs (Lauren's tracker, same day).** Each Excel table (ListObject)
+   on a sheet is a source of its own ("Sheet ▸ table “name”", `Sheet.view(Area)`), so
+   tables side by side or stacked are read one at a time; the default source is the one
+   with the most recognised columns, or the one chosen last time for the file (QSettings
+   `table_import/sources`). The header row is the first with at least half as many filled
+   cells as the fullest row (a "Data Table" title row above is skipped). Excel error values
+   (#DIV/0!, #VALUE!…) read as empty. Pictures placed in cells (rich values: `vm` →
+   xl/metadata.xml → rdrichvalue → richValueRel → xl/media) and pictures anchored over a
+   cell are read per (row, column); a **Structure picture** column gives each compound its
+   structure picture (`picture_pdf` with `picture_ext` .png/.jpg; `set_structure_image`),
+   unless a SMILES column gives the structure. **Rows without an ID: number them from …**
+   gives rows without an ID the next IDs from the one typed (`ids_from`: 3a…3z, 3aa; S1,
+   S2), skipping typed ones; then every row with data in a field column (not notes) is a
+   compound. Notes, ignore and data roles can be given to several columns. Yields and ee
+   ≤ 1 without % are fractions (×100); computed yields with 3+ decimals are rounded to
+   whole numbers; a yield or ee of 0 is left out; "HPLC Rt" cells give tR major/minor from
+   (maj)/(min), or first = major with a warning; "…, 220nm" in the HPLC conditions goes to
+   the wavelength. Header guesses tolerate "Coulmn", treat "Column1"/"MW" as not
+   imported, a plain "Yield" beside a "% / Percent Yield" column as the mass, and
+   reagent/notebook/comment/work-up columns as notes.
+5. Rows without an ID and a name are skipped (unless numbered, 4); a row with only a name gets "?" and a
+   warning; a repeated ID is warned about. The sheet's name (unless "Sheet1") names the
+   new Data section. The plan then goes through the usual review window and
+   `si_import_apply` (§13u), so everything can be checked, changed or unticked, the
+   import is one undo step, and compounds with an existing ID only get their empty fields
+   filled.
+6. Dependency: **openpyxl** (MIT, with et_xmlfile, MIT), for number formats, merged cells
+   and rich text, which the program's own reader of instrument Excel files
+   (`ms_reports.xlsx_rows`) does not need. Tests: `tests/test_si_import_table.py`.
+
 ## 14. Glossary
 
 - **SI** — Supporting/Supplemental Information.

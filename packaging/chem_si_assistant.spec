@@ -42,6 +42,9 @@ a = Analysis(
         "pypdf", "spellchecker",
         # Word export (imported only when it is used).
         "si_assistant.compile.docx_export", "docx", "lxml", "lxml.etree", "lxml._elementpath",
+        # Import Compounds from Excel (imported only when it is used).
+        "si_assistant.core.si_import_table", "si_assistant.ui.si_import_table_ui",
+        "openpyxl", "openpyxl.cell.rich_text", "et_xmlfile",
         # pypdf looks for 'cryptography' only when it starts, and quietly does without it,
         # so make sure it comes along: without it, PDFs that instrument software saved with
         # edit restrictions (AES-encrypted, empty opening password) can't be read. It is
